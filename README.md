@@ -1,8 +1,8 @@
-# jet-schema-doc
+# @jetio/schema-builder doc
 
-The documentation site for [jet schema builder](https://github.com/official-jetio/schema-builder) — a spec-compliant JSON Schema builder with spec compliant type inference(Actual JSON Schema, not custom DSL).
+The documentation site for [@jetio/schema-builder](https://github.com/official-jetio/schema-builder) — a spec-compliant JSON Schema builder with spec compliant type inference(Actual JSON Schema, not custom DSL).
 
-🌐 **Live site:** [https://jet-schema-doc.vercel.app](https://jet-schema-doc.vercel.app)
+🌐 **Live site:** [https://jet-schema-docs.vercel.app](https://jet-schema-docs.vercel.app)
 
 ---
 
