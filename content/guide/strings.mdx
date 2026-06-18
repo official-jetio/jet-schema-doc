@@ -1,0 +1,48 @@
+---
+title: String Schemas
+description: Length constraints, pattern matching, and format validation for strings.
+---
+
+# String Schemas
+
+## Length constraints
+
+```typescript
+const usernameSchema = new SchemaBuilder()
+  .string()
+  .minLength(3)
+  .maxLength(20)
+  .build();
+// { type: "string", minLength: 3, maxLength: 20 }
+```
+
+## Pattern matching
+
+```typescript
+// Using RegExp
+const slugSchema = new SchemaBuilder()
+  .string()
+  .pattern(/^[a-z0-9-]+$/)
+  .build();
+
+// Using a string
+const emailPattern = new SchemaBuilder()
+  .string()
+  .pattern("^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$")
+  .build();
+```
+
+## Format validation
+
+```typescript
+const contactSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    email: (s) => s.string().format("email"),
+    website: (s) => s.string().format("uri"),
+    createdAt: (s) => s.string().format("date-time"),
+  })
+  .build();
+```
+
+Supported formats: `email`, `uri`, `uri-reference`, `uri-template`, `date`, `time`, `date-time`, `duration`, `uuid`, `ipv4`, `ipv6`, `hostname`, `json-pointer`, `relative-json-pointer`, `regex`.

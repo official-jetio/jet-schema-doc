@@ -1,0 +1,138 @@
+---
+title: Custom Error Messages
+description: String and per-keyword error messages, property-level overrides, and the _jetError fallback.
+---
+
+import { Callout } from "nextra/components";
+
+# Custom Error Messages
+
+## String form (all errors)
+
+Override all validation errors with a single message.
+
+```typescript
+const schema = new SchemaBuilder()
+  .string()
+  .minLength(5)
+  .maxLength(20)
+  .pattern("^[a-z]+$")
+  .errorMessage("Username must be 5-20 lowercase letters")
+  .build();
+// ANY failure returns: "Username must be 5-20 lowercase letters"
+```
+
+## Object form (per-keyword)
+
+```typescript
+const schema = new SchemaBuilder()
+  .string()
+  .minLength(5)
+  .maxLength(20)
+  .pattern("^[a-z]+$")
+  .errorMessage({
+    type: "Must be text",
+    minLength: "Too short - need at least 5 characters",
+    maxLength: "Too long - maximum 20 characters",
+    pattern: "Only lowercase letters allowed",
+  })
+  .build();
+```
+
+## Property-level error messages
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    email: (s) => s.string().format("email"),
+    age: (s) => s.integer().minimum(18),
+  })
+  .errorMessage({
+    properties: {
+      email: "Please enter a valid email address",
+      age: "You must be at least 18 years old",
+    },
+  })
+  .build();
+```
+
+## Per-keyword property errors
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    email: (s) => s.string().format("email").minLength(5),
+    password: (s) => s.string().minLength(8).pattern("^(?=.*[A-Z])"),
+  })
+  .errorMessage({
+    properties: {
+      email: {
+        format: "Invalid email format",
+        minLength: "Email too short",
+      },
+      password: {
+        minLength: "Password must be at least 8 characters",
+        pattern: "Password must contain an uppercase letter",
+      },
+    },
+  })
+  .build();
+```
+
+## Nested schema error messages
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    user: (s) =>
+      s
+        .object()
+        .properties({
+          name: (s) => s.string().minLength(2),
+          email: (s) => s.string().format("email"),
+        })
+        .errorMessage({
+          properties: {
+            name: "Name must be at least 2 characters",
+            email: "Invalid email",
+          },
+        }),
+  })
+  .build();
+```
+
+## The _jetError fallback
+
+Use `_jetError` as a catch-all for keywords without explicit messages.
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    user: (s) =>
+      s.object().properties({
+        name: (s) => s.string(),
+        email: (s) => s.string(),
+      }),
+  })
+  .errorMessage({
+    properties: {
+      user: {
+        _jetError: "User validation failed", // fallback
+        properties: {
+          name: "Invalid name",
+          email: "Invalid email",
+        },
+      },
+    },
+  })
+  .build();
+```
+
+<Callout type="info">
+  For the full model of how error messages resolve, see the Jet-Validator
+  [Error Handling docs](https://jet-validator-docs.vercel.app/custom-error-messages).
+</Callout>

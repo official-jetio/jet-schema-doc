@@ -1,0 +1,45 @@
+---
+title: Installation
+description: Install @jetio/schema-builder and import the builder, validator, and type-inference helpers.
+---
+
+import { Callout, Tabs } from "nextra/components";
+
+# Installation
+
+<Tabs items={["npm", "yarn", "pnpm"]}>
+  <Tabs.Tab>
+    ```bash
+    npm install @jetio/schema-builder
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    yarn add @jetio/schema-builder
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pnpm add @jetio/schema-builder
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+## Imports
+
+```typescript
+import { SchemaBuilder, RefBuilder } from "@jetio/schema-builder";
+import { JetValidator } from "@jetio/schema-builder"; // re-exported from @jetio/validator
+```
+
+`Jet` (for `Jet.Infer<>`) is also exported from the same entry point:
+
+```typescript
+import { SchemaBuilder, Jet, JetValidator } from "@jetio/schema-builder";
+```
+
+<Callout type="info">
+  **Just need the validator?** Install
+  [@jetio/validator](https://www.npmjs.com/package/@jetio/validator) directly for a
+  smaller bundle.
+</Callout>

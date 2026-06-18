@@ -1,0 +1,103 @@
+---
+title: Quick Start
+description: Build a schema, infer its type, and validate against it in a few lines.
+---
+
+import { Callout } from "nextra/components";
+
+# Quick Start
+
+## A simple schema
+
+```typescript
+import { SchemaBuilder } from "@jetio/schema-builder";
+
+const userSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    name: (s) => s.string().minLength(2),
+    age: (s) => s.number().minimum(18),
+  })
+  .required(["name", "age"])
+  .build();
+```
+
+That produces exactly this JSON Schema:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "minLength": 2 },
+    "age": { "type": "number", "minimum": 18 }
+  },
+  "required": ["name", "age"]
+}
+```
+
+## Builder, type, and validator together
+
+This is the whole pitch in one example — a single schema produces the JSON Schema, a TypeScript type, and a compiled validator, all enforcing the same rules.
+
+```typescript
+import { SchemaBuilder, Jet, JetValidator } from "@jetio/schema-builder";
+
+const accountSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    accountType: (s) => s.string(),
+    username: (s) => s.string(),
+    companyName: (s) => s.string(),
+    email: (s) => s.string().format("email"),
+  })
+  .required(["accountType", "email"])
+  .if((s) =>
+    s.object().properties({
+      accountType: (s) => s.const("personal"),
+    }),
+  )
+  .then((s) => s.object().required(["username"]))
+  .elseIf((s) =>
+    s.object().properties({
+      accountType: (s) => s.const("business"),
+    }),
+  )
+  .then((s) => s.object().required(["companyName"]))
+  .end()
+  .build();
+
+// 1. Type inference
+type Account = Jet.Infer<typeof accountSchema>;
+// personal → username required | business → companyName required | base otherwise
+
+// 2. Runtime validation
+const validator = new JetValidator({ allErrors: true });
+const validate = validator.compile(accountSchema);
+
+validate({
+  accountType: "personal",
+  email: "alice@example.com",
+  username: "alice",
+}); // true
+
+validate({
+  accountType: "personal",
+  email: "alice@example.com",
+  // missing username!
+}); // false
+
+console.log(validate.errors);
+// [{ dataPath: '/', keyword: 'required', message: "must have required property 'username'" }]
+```
+
+<Callout type="info">
+  The conditional above uses the `elseIf` extension for clean chaining. See
+  [Conditionals](/guide/conditionals) for the full builder API and
+  [Type Inference → Conditionals](/type-inference/conditionals) for how the type is derived.
+</Callout>
+
+## Next steps
+
+- Learn the full builder API in the [Guide](/guide/basic-types).
+- Understand how types are derived in [Type Inference](/type-inference/overview).
+- Browse complete, real-world schemas in [Examples](/examples/ecommerce-product).

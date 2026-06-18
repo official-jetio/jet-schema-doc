@@ -1,0 +1,140 @@
+---
+title: Additional & Unevaluated Properties
+description: Why you hint Jetter with an empty .properties({}), how the index signature is added, and the exclusivity trade-off.
+---
+
+import { Callout } from "nextra/components";
+
+# Additional & Unevaluated Properties
+
+Both `additionalProperties` and `unevaluatedProperties` constrain an object's extra keys. Support is limited by TypeScript itself — TypeScript can't override a general index type with specific defined types, so these keywords interact with `properties` in a particular way.
+
+## The core rule
+
+By default the inference only checks **base-level** properties before deciding how to apply `additionalProperties` / `unevaluatedProperties`. Properties inside immediate subschemas (`allOf`, `oneOf`, conditionals, etc.) are ignored by design, to avoid recursion. You have to tell Jetter those subschema properties exist.
+
+If a subschema has a `properties` keyword, add an empty `.properties({})` at the level where `additionalProperties` / `unevaluatedProperties` is declared. That tells Jetter to skip enforcing a fixed `Record` and instead add `[x: string]: any` — signalling "this object accepts more properties" rather than locking the shape.
+
+```typescript
+// ❌ Without .properties({}) at the root, additionalProperties: false
+//    doesn't know about "currency" from the allOf and marks it never.
+const a = new SchemaBuilder()
+  .object()
+  .additionalProperties(false)
+  .allOf((s) =>
+    s.object().properties({ currency: (s) => s.enum(["USD", "EUR", "GBP"]) }),
+  )
+  .build();
+
+// ✅ With it, Jetter skips the additionalProperties value and adds [x: string]: any
+const b = new SchemaBuilder()
+  .object()
+  .properties({}) // hint
+  .additionalProperties(false)
+  .allOf((s) =>
+    s.object().properties({
+      currency: (s) => s.enum(["USD", "EUR", "GBP"]),
+      timestamp: (s) => s.string(),
+    }),
+  )
+  .build();
+```
+
+## In summary
+
+1. Define an empty `.properties({})` at the parent level if subschemas have properties.
+2. If properties exist (empty or defined), `additional`/`unevaluatedProperties` only apply when the value is an object or `true` — their sole purpose then is to add `[x: string]: any`; `false` keeps the fixed shape.
+3. The real constraint only applies when **no** properties are defined, so it covers all properties (e.g. `Record<string, string | number>`).
+
+<Callout type="warning">
+  Adding `[x: string]: any` makes the object loose. Type constraints are still enforced, but
+  properties are no longer limited to those defined — and this **breaks exclusivity** in a
+  `oneOf` union.
+</Callout>
+
+## Exclusivity trade-off
+
+```typescript
+const responseSchema = new SchemaBuilder()
+  .unevaluatedProperties(false)
+  .properties({})
+  .oneOf(
+    (s) =>
+      s
+        .object()
+        .properties({
+          success: (s) => s.const(true),
+          data: (s) => s.string(),
+        })
+        .required(["success", "data"]),
+    (s) =>
+      s
+        .object()
+        .properties({
+          success: (s) => s.const(false),
+          error: (s) => s.string(),
+        })
+        .required(["success", "error"]),
+  )
+  .build();
+
+type Response = Jet.Infer<typeof responseSchema>;
+// With unevaluated/additionalProperties FALSE → fixed shape (exclusivity kept):
+// { success: true; data: string; error?: undefined }
+//   | { success: false; error: string; data?: undefined }
+//
+// With them TRUE or a schema → [x: string]: any is added and exclusivity BREAKS:
+// {
+//    [x: string]: any;
+//    success: true;
+//    data: string;
+// } | {
+//    [x: string]: any;
+//    success: false;
+//    error: string;
+// }
+
+```
+
+## When constraints actually apply
+
+When no `properties` are defined, the keyword constrains every property.
+
+```typescript
+const open = new SchemaBuilder().additionalProperties(true).build();
+type Open = Jet.Infer<typeof open>;
+// { [x: string]: any }
+
+const closed = new SchemaBuilder().object().additionalProperties(false).build();
+type Closed = Jet.Infer<typeof closed>;
+// { [x: string]: never } — rejects every property
+
+const typed = new SchemaBuilder()
+  .object()
+  .additionalProperties((s) =>
+    s
+      .object()
+      .properties({
+        success: (s) => s.const(true),
+        data: (s) => s.string(),
+      })
+      .required(["success", "data"]),
+  )
+  .build();
+type Typed = Jet.Infer<typeof typed>;
+// { [x: string]: { success: true; data: string } }
+```
+
+<Callout type="info">
+  `unevaluatedProperties` works identically to `additionalProperties` — same rules, same
+  limitations. Only the keyword name differs.
+</Callout>
+
+## Cheat sheet
+
+| Setting                                   | Inference                  | Exclusivity   | Behavior                                            |
+| ----------------------------------------- | -------------------------- | ------------- | --------------------------------------------------- |
+| `.additionalProperties(false)`            | `Record<string, never>`    | Maintained    | Strict — no extra keys. Best for `oneOf`.           |
+| `.additionalProperties(true)`             | `{ [x: string]: any }`     | Broken        | Open — any extra key allowed.                       |
+| `.additionalProperties(s.string())`       | `{ [x: string]: string }`  | Broken        | Controlled — extra keys must follow the schema.     |
+| `.properties({}).unevaluatedProperties(…)`| `{ [x: string]: any }`     | Variable      | Hinted — tells Jetter to look into sub-schemas.     |

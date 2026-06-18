@@ -1,0 +1,66 @@
+---
+title: Type Definitions
+description: Core types used throughout the builder API.
+---
+
+# Type Definitions
+
+```typescript
+// Core types
+type BuilderSchema = SchemaDefinition | SchemaBuilder<any> | boolean;
+
+// $data reference for dynamic values
+type $data = { $data: string };
+
+// Schema callback pattern
+type SchemaCallback = (builder: SchemaBuilder) => SchemaBuilder;
+```
+
+## Common patterns
+
+### Inline schema definition
+
+```typescript
+.properties({
+  name: (s) => s.string(),
+  age: (s) => s.number(),
+})
+```
+
+### Reusable schema
+
+```typescript
+const nameSchema = new SchemaBuilder().string().build();
+
+// Later
+.properties({ name: nameSchema })
+```
+
+### Boolean schemas
+
+```typescript
+.properties({
+  allowAny: true,   // accepts any value
+  rejectAll: false, // rejects all values
+})
+```
+
+### Composition patterns
+
+```typescript
+// Using callbacks
+.allOf(
+  (s) => s.object().properties({ id: (s) => s.number() }),
+  (s) => s.object().properties({ name: (s) => s.string() }),
+)
+
+// Using existing schemas
+const baseSchema = new SchemaBuilder().object().build();
+.allOf(baseSchema, otherSchema)
+
+// Mixed
+.oneOf(
+  baseSchema,
+  (s) => s.object().properties({ type: (s) => s.const("custom") }),
+)
+```

@@ -1,0 +1,15 @@
+---
+title: StringSchemaBuilder
+description: String-specific constraint methods.
+---
+
+# StringSchemaBuilder
+
+Provides the universal and metadata methods (`$id`, `title`, `description`, `enum`, `const`, `anyOf`, `allOf`, `oneOf`, `not`, `if`, `errorMessage`, `extend`, `build`, …) plus the string-specific constraints below. Per [type locking](/guide/type-locking), only this type's constraints are accessible once the builder is locked to string.
+
+| Method            | Parameters                      | Returns         | Description                                     |
+| ----------------- | ------------------------------- | --------------- | ----------------------------------------------- |
+| `.minLength(len)` | `number` or `$data`             | `SchemaBuilder` | Minimum string length                           |
+| `.maxLength(len)` | `number` or `$data`             | `SchemaBuilder` | Maximum string length                           |
+| `.pattern(regex)` | `string` or `RegExp` or `$data` | `SchemaBuilder` | Regex pattern                                   |
+| `.format(name)`   | `string` or `$data`             | `SchemaBuilder` | Format validation (email, uri, date-time, etc.) |

@@ -1,0 +1,24 @@
+---
+title: ObjectSchemaBuilder
+description: Object-specific methods for properties, dependencies, and structural constraints.
+---
+
+# ObjectSchemaBuilder
+
+Provides the universal and metadata methods (`$id`, `title`, `description`, `enum`, `const`, `anyOf`, `allOf`, `oneOf`, `not`, `if`, `errorMessage`, `extend`, `build`, …) plus the object-specific constraints below. Per [type locking](/guide/type-locking), only this type's constraints are accessible once the builder is locked to object.
+
+| Method                           | Parameters                                                                                                         | Returns         | Description                                        |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------- | -------------------------------------------------- |
+| `.properties(props)`             | `Record<string, BuilderSchema>` or `Record<string, (b: SchemaBuilder) => SchemaBuilder>`                          | `SchemaBuilder` | Define property schemas                            |
+| `.patternProperties(patterns)`   | `Record<string, BuilderSchema>` or `Record<string, (b: SchemaBuilder) => SchemaBuilder>`                          | `SchemaBuilder` | Define pattern-matched property schemas            |
+| `.additionalProperties(schema)`  | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder`                                                           | `SchemaBuilder` | Schema for additional properties                   |
+| `.unevaluatedProperties(schema)` | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder`                                                           | `SchemaBuilder` | Schema for unevaluated properties (Draft 2019-09+) |
+| `.propertyNames(schema)`         | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder`                                                           | `SchemaBuilder` | Schema for property names                          |
+| `.required(fields)`              | `string[]` or `$data`                                                                                             | `SchemaBuilder` | Required property names                            |
+| `.minProperties(n)`              | `number` or `$data`                                                                                              | `SchemaBuilder` | Minimum property count                             |
+| `.maxProperties(n)`              | `number` or `$data`                                                                                              | `SchemaBuilder` | Maximum property count                             |
+| `.dependentRequired(deps)`       | `Record<string, string[]>`                                                                                       | `SchemaBuilder` | Conditional required fields                        |
+| `.dependentSchemas(deps)`        | `Record<string, BuilderSchema>` or `Record<string, (b: SchemaBuilder) => SchemaBuilder>`                         | `SchemaBuilder` | Conditional schemas (Draft 2019-09+)               |
+| `.dependencies(deps)`            | `Record<string, BuilderSchema \| string[]>` or `Record<string, (b: SchemaBuilder) => SchemaBuilder \| string[]>` | `SchemaBuilder` | Combined dependencies (Draft 07)                   |
+| `.remove(properties, targets?)`  | `string[]`, `("properties" \| "required" \| "patternProperties" \| "dependencies" \| "dependentRequired")[]?`     | `SchemaBuilder` | Remove properties from schema                      |
+| `.optional()`                    | —                                                                                                                 | `SchemaBuilder` | Remove all required constraints                    |

@@ -1,0 +1,164 @@
+---
+title: Array Schemas
+description: Item schemas, tuples, contains constraints, and unevaluated/additional items across drafts.
+---
+
+import { Callout } from "nextra/components";
+
+# Array Schemas
+
+## Basic arrays
+
+```typescript
+// Array with item schema
+const numbersSchema = new SchemaBuilder()
+  .array()
+  .items((s) => s.number())
+  .build();
+// { type: "array", items: { type: "number" } }
+
+// With size constraints
+const tagsSchema = new SchemaBuilder()
+  .array()
+  .items((s) => s.string())
+  .minItems(1)
+  .maxItems(10)
+  .uniqueItems(true)
+  .build();
+```
+
+## Tuple validation (prefixItems)
+
+Fixed-length arrays with a different type per position.
+
+```typescript
+const coordinateSchema = new SchemaBuilder()
+  .array()
+  .prefixItems(
+    (s) => s.number(), // latitude
+    (s) => s.number(), // longitude
+  )
+  .minItems(2)
+  .maxItems(2)
+  .build();
+// { type: "array", prefixItems: [{ type: "number" }, { type: "number" }], minItems: 2, maxItems: 2 }
+```
+
+## Contains & count constraints
+
+```typescript
+// Array must contain at least one number > 100
+const arrayWithLargeNumber = new SchemaBuilder()
+  .array()
+  .items((s) => s.number())
+  .contains((s) => s.number().minimum(100))
+  .minContains(1)
+  .maxContains(5)
+  .build();
+```
+
+## Complex array items
+
+```typescript
+const usersSchema = new SchemaBuilder()
+  .array()
+  .items((s) =>
+    s
+      .object()
+      .properties({
+        id: (s) => s.integer(),
+        name: (s) => s.string().minLength(1),
+        email: (s) => s.string().format("email"),
+        roles: (s) => s.array().items((s) => s.string()),
+      })
+      .required(["id", "name", "email"]),
+  )
+  .minItems(1)
+  .build();
+```
+
+## Unevaluated items (Draft 2019-09+)
+
+Control validation of array items not covered by `prefixItems`, `items`, or `contains`.
+
+```typescript
+// Disallow any unevaluated items
+const strictTuple = new SchemaBuilder()
+  .array()
+  .prefixItems(
+    (s) => s.string(),
+    (s) => s.number(),
+  )
+  .unevaluatedItems(false)
+  .build();
+// Valid: ["hello", 42]   Invalid: ["hello", 42, "extra"]
+
+// Allow unevaluated items with a schema
+const flexibleTuple = new SchemaBuilder()
+  .array()
+  .prefixItems(
+    (s) => s.string(),
+    (s) => s.number(),
+  )
+  .unevaluatedItems((s) => s.boolean())
+  .build();
+// Valid: ["hello", 42, true, false]   Invalid: ["hello", 42, "not a boolean"]
+
+// Allow any unevaluated items
+const openTuple = new SchemaBuilder()
+  .array()
+  .prefixItems(
+    (s) => s.string(),
+    (s) => s.number(),
+  )
+  .unevaluatedItems(true)
+  .build();
+// Valid: ["hello", 42, anything, anything, ...]
+```
+
+## Additional items (Draft 07 and earlier)
+
+For older drafts, use `additionalItems` with array-form `items`.
+
+```typescript
+// Disallow additional items beyond the tuple
+const strictTupleLegacy = new SchemaBuilder()
+  .array()
+  .items({ type: "string" }, { type: "number" })
+  .additionalItems(false)
+  .build();
+// Valid: ["hello", 42]   Invalid: ["hello", 42, "extra"]
+
+// Allow additional items with a schema
+const flexibleTupleLegacy = new SchemaBuilder()
+  .array()
+  .items(
+    (s) => s.string(),
+    (s) => s.number(),
+  )
+  .additionalItems((s) => s.boolean())
+  .build();
+// Valid: ["hello", 42, true, false]   Invalid: ["hello", 42, "not a boolean"]
+
+// Allow any additional items
+const openTupleLegacy = new SchemaBuilder()
+  .array()
+  .items(
+    (s) => s.string(),
+    (s) => s.number(),
+  )
+  .additionalItems(true)
+  .build();
+// Valid: ["hello", 42, anything, ...]
+```
+
+<Callout type="info">
+  In Draft 2020-12, array-form `items` was replaced by `prefixItems`, and `additionalItems`
+  was replaced by `items` (schema form) for items beyond the tuple. Use `unevaluatedItems`
+  for items not validated by any keyword.
+</Callout>
+
+<Callout type="warning">
+  Tuple `prefixItems` and `items` take **variadic** arguments, not an array:
+  `.prefixItems(...schemas)` and `.items(...schemas)` — not `.prefixItems([...])`.
+</Callout>

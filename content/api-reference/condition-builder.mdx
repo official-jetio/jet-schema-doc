@@ -1,0 +1,33 @@
+---
+title: ConditionBuilder
+description: Methods returned by .if() for building conditional schemas, and how control returns to the parent builder.
+---
+
+# ConditionBuilder
+
+`.if()` returns a `ConditionBuilder`. While you're inside it, `.then()` and `.elseIf()` keep returning the `ConditionBuilder` so you can keep chaining conditions. `.else()` and `.end()` **close the conditional and hand control back to the parent builder** — the `SchemaBuilder` (or sub-builder) you called `.if()` on — so you can continue with `.properties()`, `.required()`, `.build()`, and so on.
+
+In other words, "parent builder" is whatever builder the conditional was attached to. `.else()` / `.end()` are how you step back out to it.
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    role: (s) => s.string(),
+    adminKey: (s) => s.string(),
+  })
+  .if((s) => s.object().properties({ role: (s) => s.const("admin") }))
+  .then((s) => s.object().required(["adminKey"]))
+  .end() // closes the conditional, returns the ObjectSchemaBuilder
+  .required(["role"]) // back on the parent builder
+  .build();
+```
+
+Without a trailing `.else()`, you must call `.end()` to return to the parent — otherwise the chain is still inside the `ConditionBuilder` and `.build()` isn't available.
+
+| Method               | Parameters                                               | Returns            | Description                          |
+| -------------------- | -------------------------------------------------------- | ------------------ | ------------------------------------ |
+| `.then(schema)`      | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder` | `ConditionBuilder` | Schema applied if the condition passes |
+| `.elseIf(condition)` | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder` | `ConditionBuilder` | Add another condition to the chain   |
+| `.else(schema)`      | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder` | Parent builder     | Schema if all conditions fail; closes the conditional |
+| `.end()`             | —                                                        | Parent builder     | Close the conditional without an else |

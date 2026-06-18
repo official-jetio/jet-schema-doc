@@ -1,0 +1,40 @@
+---
+title: RefBuilder
+description: Fluent JSON Pointer construction methods.
+---
+
+# RefBuilder
+
+| Method                        | Parameters | Returns      | Description                            |
+| ----------------------------- | ---------- | ------------ | -------------------------------------- |
+| `.base(url)`                  | `string`   | `RefBuilder` | Set base URL                           |
+| `.$defs(name)`                | `string`   | `RefBuilder` | Add /$defs/name                        |
+| `.definitions(name)`          | `string`   | `RefBuilder` | Add /definitions/name                  |
+| `.properties(name)`           | `string`   | `RefBuilder` | Add /properties/name                   |
+| `.patternProperties(pattern)` | `string`   | `RefBuilder` | Add /patternProperties/pattern         |
+| `.additionalProperties()`     | —          | `RefBuilder` | Add /additionalProperties              |
+| `.unevaluatedProperties()`    | —          | `RefBuilder` | Add /unevaluatedProperties             |
+| `.propertyNames()`            | —          | `RefBuilder` | Add /propertyNames                     |
+| `.dependentSchemas(prop)`     | `string`   | `RefBuilder` | Add /dependentSchemas/prop             |
+| `.dependencies(prop)`         | `string`   | `RefBuilder` | Add /dependencies/prop                 |
+| `.items(index?)`              | `number?`  | `RefBuilder` | Add /items or /items/index             |
+| `.prefixItems(index)`         | `number`   | `RefBuilder` | Add /prefixItems/index                 |
+| `.additionalItems()`          | —          | `RefBuilder` | Add /additionalItems                   |
+| `.unevaluatedItems()`         | —          | `RefBuilder` | Add /unevaluatedItems                  |
+| `.contains()`                 | —          | `RefBuilder` | Add /contains                          |
+| `.allOf(index)`               | `number`   | `RefBuilder` | Add /allOf/index                       |
+| `.anyOf(index)`               | `number`   | `RefBuilder` | Add /anyOf/index                       |
+| `.oneOf(index)`               | `number`   | `RefBuilder` | Add /oneOf/index                       |
+| `.not()`                      | —          | `RefBuilder` | Add /not                               |
+| `.if()`                       | —          | `RefBuilder` | Add /if                                |
+| `.then()`                     | —          | `RefBuilder` | Add /then                              |
+| `.else()`                     | —          | `RefBuilder` | Add /else                              |
+| `.elseIf(index)`              | `number`   | `RefBuilder` | Add /elseIf/index                      |
+| `.anchor(name)`               | `string`   | `RefBuilder` | Set anchor reference                   |
+| `.dynamicAnchor(name)`        | `string`   | `RefBuilder` | Set dynamic anchor reference           |
+| `.segment(path)`              | `string`   | `RefBuilder` | Add custom path segment                |
+| `.reset()`                    | —          | `RefBuilder` | Clear path back to base                |
+| `.extend()`                   | —          | `RefBuilder` | Clone RefBuilder                       |
+| `.chain()`                    | —          | `RefBuilder` | Return self (for external composition) |
+| `.build()`                    | —          | `string`     | Return the reference string            |
+| `.toString()`                 | —          | `string`     | Alias for build()                      |

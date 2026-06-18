@@ -1,0 +1,236 @@
+---
+title: Object Schemas
+description: Properties, pattern properties, additional/unevaluated properties, dependencies, nesting, and extension helpers.
+---
+
+import { Callout } from "nextra/components";
+
+# Object Schemas
+
+## Properties and required
+
+```typescript
+const personSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    firstName: (s) => s.string(),
+    lastName: (s) => s.string(),
+    age: (s) => s.integer().minimum(0),
+  })
+  .required(["firstName", "lastName"])
+  .build();
+```
+
+## Pattern properties
+
+```typescript
+const configSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    version: (s) => s.string(),
+  })
+  .patternProperties({
+    "^env_": (s) => s.string(), // env_* properties must be strings
+    "^flag_": (s) => s.boolean(), // flag_* properties must be booleans
+  })
+  .build();
+// Matches: { version: "1.0", env_mode: "production", flag_debug: true }
+```
+
+## Additional properties
+
+```typescript
+// Disallow additional properties (strict)
+const strictSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    name: (s) => s.string(),
+  })
+  .additionalProperties(false)
+  .build();
+
+// Allow additional properties with a schema
+const flexibleSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    knownProp: (s) => s.string(),
+  })
+  .additionalProperties((s) => s.number())
+  .build();
+// Any additional property must be a number
+```
+
+## Unevaluated properties (Draft 2019-09+)
+
+Control validation of properties not evaluated by `properties`, `patternProperties`, `additionalProperties`, or any subschema in `allOf`, `anyOf`, `oneOf`, `if/then/else`.
+
+```typescript
+// Disallow unevaluated properties
+const strictComposition = new SchemaBuilder()
+  .object()
+  .allOf(
+    (s) => s.object().properties({ name: (s) => s.string() }),
+    (s) => s.object().properties({ age: (s) => s.integer() }),
+  )
+  .unevaluatedProperties(false)
+  .build();
+// Valid: { name: "Alice", age: 30 }   Invalid: { name: "Alice", age: 30, extra: "oops" }
+
+// Allow unevaluated properties with a schema
+const flexibleComposition = new SchemaBuilder()
+  .object()
+  .allOf((s) => s.object().properties({ id: (s) => s.integer() }))
+  .unevaluatedProperties((s) => s.string())
+  .build();
+// Valid: { id: 1, name: "Alice" }   Invalid: { id: 1, count: 42 }
+```
+
+## Property name constraints
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .propertyNames((s) => s.string().pattern("^[a-z_]+$"))
+  .build();
+// All property names must be lowercase with underscores
+```
+
+## Property count
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .minProperties(1)
+  .maxProperties(10)
+  .build();
+```
+
+## Dependent schemas
+
+```typescript
+// When 'creditCard' exists, require 'billingAddress'
+const paymentSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    creditCard: (s) => s.string(),
+    billingAddress: (s) => s.string(),
+    shippingAddress: (s) => s.string(),
+  })
+  .dependentSchemas({
+    creditCard: (s) => s.object().required(["billingAddress"]),
+  })
+  .build();
+```
+
+## Dependent required
+
+```typescript
+// When 'country' is present, 'state' must also be present
+const addressSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    street: (s) => s.string(),
+    city: (s) => s.string(),
+    state: (s) => s.string(),
+    country: (s) => s.string(),
+  })
+  .dependentRequired({
+    country: ["state"],
+    state: ["city"],
+  })
+  .build();
+```
+
+## Dependencies
+
+The Draft 07 combined form, accepting either a schema or a required-field array per key.
+
+```typescript
+const paymentSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    creditCard: (s) => s.string(),
+    billingAddress: (s) => s.string(),
+    shippingAddress: (s) => s.string(),
+    street: (s) => s.string(),
+    city: (s) => s.string(),
+    state: (s) => s.string(),
+    country: (s) => s.string(),
+  })
+  .dependencies({
+    creditCard: (s) => s.object().required(["billingAddress"]),
+    country: ["state"],
+    state: ["city"],
+  })
+  .build();
+```
+
+## Nested objects
+
+```typescript
+const companySchema = new SchemaBuilder()
+  .object()
+  .properties({
+    name: (s) => s.string(),
+    address: (s) =>
+      s
+        .object()
+        .properties({
+          street: (s) => s.string(),
+          city: (s) => s.string(),
+          country: (s) => s.string(),
+        })
+        .required(["street", "city", "country"]),
+    employees: (s) =>
+      s.array().items((s) =>
+        s.object().properties({
+          name: (s) => s.string(),
+          role: (s) => s.string(),
+        }),
+      ),
+  })
+  .required(["name", "address"])
+  .build();
+```
+
+## Removing properties
+
+When extending schemas, remove unwanted fields.
+
+```typescript
+const fullSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.integer(),
+    name: (s) => s.string(),
+    password: (s) => s.string(),
+    secret: (s) => s.string(),
+  })
+  .required(["id", "name", "password"]);
+
+const publicSchema = new SchemaBuilder()
+  .extend(fullSchema)
+  .remove(
+    ["password", "secret"], // fields to remove
+    ["properties", "required"], // remove from both properties and required array
+  )
+  .build();
+```
+
+<Callout type="info">
+  Available `remove` targets: `properties`, `required`, `patternProperties`,
+  `dependencies`, `dependentRequired`.
+</Callout>
+
+## Making fields optional
+
+Remove all required constraints.
+
+```typescript
+const strictSchema = new SchemaBuilder()
+  .object()
+  .properties({ name: (s) => s.string() })
+  .required(["name"]);
+
+const looseSchema = new SchemaBuilder().extend(strictSchema).optional().build();
+```

@@ -1,0 +1,227 @@
+---
+title: References
+description: $ref, the RefBuilder fluent pointer API, $dynamicRef, and anchors.
+---
+
+import { Callout } from "nextra/components";
+
+# References
+
+## $ref — schema references
+
+### Local references
+
+```typescript
+const schema = new SchemaBuilder()
+  .$defs({
+    address: (s) =>
+      s.object().properties({
+        street: (s) => s.string(),
+        city: (s) => s.string(),
+        zipCode: (s) => s.string(),
+      }),
+  })
+  .object()
+  .properties({
+    billingAddress: (s) => s.$ref("#/$defs/address"),
+    shippingAddress: (s) => s.$ref("#/$defs/address"),
+  })
+  .build();
+```
+
+### External references
+
+```typescript
+// Reference an external schema by URL
+const userSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    profile: (s) => s.$ref("https://example.com/schemas/profile.json"),
+  })
+  .build();
+
+// Reference with a fragment
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    user: (s) => s.$ref("https://example.com/schemas/common.json#/$defs/user"),
+  })
+  .build();
+```
+
+## RefBuilder — type-safe references
+
+`RefBuilder` provides a fluent API for constructing JSON Pointer references.
+
+```typescript
+import { RefBuilder } from "@jetio/schema-builder";
+
+const ref1 = new RefBuilder().$defs("user").properties("address").build();
+// "#/$defs/user/properties/address"
+
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    mainUser: (s) => s.$ref((r) => r.$defs("user")),
+    altUser: (s) => s.$ref((r) => r.$defs("user").properties("email")),
+  })
+  .build();
+```
+
+### RefBuilder API
+
+```typescript
+// Definitions
+.$defs("schemaName")           // #/$defs/schemaName
+.definitions("schemaName")     // #/definitions/schemaName
+
+// Properties
+.properties("propName")        // /properties/propName
+.patternProperties("pattern")  // /patternProperties/pattern
+.additionalProperties()        // /additionalProperties
+.propertyNames()               // /propertyNames
+
+// Arrays
+.items()                       // /items
+.items(0)                      // /items/0
+.prefixItems(0)                // /prefixItems/0
+.contains()                    // /contains
+.additionalItems()             // /additionalItems
+
+// Composition
+.allOf(0)                      // /allOf/0
+.anyOf(1)                      // /anyOf/1
+.oneOf(2)                      // /oneOf/2
+.not()                         // /not
+
+// Conditionals
+.if()                          // /if
+.then()                        // /then
+.else()                        // /else
+.elseIf(0)                     // /elseIf/0
+
+// Dependencies
+.dependentSchemas("prop")      // /dependentSchemas/prop
+
+// Anchors
+.anchor("anchorName")          // #anchorName
+.dynamicAnchor("name")         // #name
+
+// Base URL
+.base("https://example.com/schema") // Change base URL
+
+// Custom segments
+.segment("customPath")         // /customPath
+
+// Utilities
+.reset()                       // Clear path back to base
+.chain()                       // Return self (for external composition)
+.extend()                      // Clone for branching
+
+// Building
+.build()                       // Returns the complete reference string
+.toString()                    // Alias for build()
+```
+
+### Complex example
+
+```typescript
+const complexSchema = new SchemaBuilder()
+  .$defs({
+    person: (s) =>
+      s.object().properties({
+        name: (s) => s.string(),
+        contacts: (s) =>
+          s.array().items((s) =>
+            s.object().properties({
+              type: (s) => s.string(),
+              value: (s) => s.string(),
+            }),
+          ),
+      }),
+  })
+  .object()
+  .properties({
+    primaryContact: (s) =>
+      s.$ref((r) => r.$defs("person").properties("contacts").items()),
+    externalRef: (s) =>
+      s.$ref((r) =>
+        r
+          .base("https://example.com/schema")
+          .$defs("common")
+          .properties("metadata"),
+      ),
+  })
+  .build();
+```
+
+### RefBuilder with anchors
+
+```typescript
+const schema = new SchemaBuilder()
+  .$id("https://example.com/schema")
+  .$defs({
+    user: (s) =>
+      s
+        .object()
+        .$anchor("userSchema")
+        .properties({ name: (s) => s.string() }),
+  })
+  .object()
+  .properties({
+    admin: (s) => s.$ref((r) => r.anchor("userSchema")), // by anchor
+    moderator: (s) => s.$ref((r) => r.$defs("user")), // by path
+  })
+  .build();
+```
+
+### RefBuilder extension
+
+```typescript
+const baseRef = new RefBuilder()
+  .base("https://api.example.com/schemas")
+  .$defs("common");
+
+const userRef = baseRef.extend().properties("user").build();
+// "https://api.example.com/schemas#/$defs/common/properties/user"
+
+const productRef = baseRef.extend().properties("product").build();
+// "https://api.example.com/schemas#/$defs/common/properties/product"
+```
+
+## $dynamicRef — dynamic references
+
+```typescript
+const schema = new SchemaBuilder()
+  .$dynamicAnchor("meta")
+  .object()
+  .properties({
+    nested: (s) => s.$dynamicRef((r) => r.anchor("meta")),
+  })
+  .build();
+```
+
+## Anchors
+
+```typescript
+const schema = new SchemaBuilder()
+  .$id("https://example.com/schema")
+  .$defs({
+    user: (s) =>
+      s
+        .object()
+        .$anchor("simpleUser") // reference as #simpleUser
+        .$dynamicAnchor("recursiveUser") // dynamic reference
+        .properties({ name: (s) => s.string() }),
+  })
+  .object()
+  .properties({
+    user: (s) => s.$ref("#simpleUser"),
+  })
+  .build();
+```
+
+<Callout type="info">
+  For type inference, prefer `.extend()` over `$ref` — `$ref` resolves at validation time
+  but gives TypeScript `unknown`. See [Schema Reuse & Extension](/guide/reuse-extension).
+</Callout>

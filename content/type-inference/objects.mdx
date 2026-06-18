@@ -1,0 +1,126 @@
+---
+title: Objects
+description: Required vs optional inference, nested objects, empty objects, and the required-without-properties rule.
+---
+
+import { Callout } from "nextra/components";
+
+# Objects
+
+## Basic object properties
+
+Without `.required()`, all properties are optional.
+
+```typescript
+const userSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    username: (s) => s.string(),
+    email: (s) => s.string(),
+    age: (s) => s.number(),
+  })
+  .build();
+
+type User = Jet.Infer<typeof userSchema>;
+// { username?: string; email?: string; age?: number }
+```
+
+## Required properties
+
+```typescript
+const personSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.number(),
+    firstName: (s) => s.string(),
+    lastName: (s) => s.string(),
+    email: (s) => s.string(),
+    age: (s) => s.number(),
+  })
+  .required(["id", "firstName", "lastName", "email"])
+  .build();
+
+type Person = Jet.Infer<typeof personSchema>;
+// {
+//   id: number;        // required
+//   firstName: string; // required
+//   lastName: string;  // required
+//   email: string;     // required
+//   age?: number;      // optional
+// }
+```
+
+## Required without a matching property
+
+Properties listed in `.required()` don't need to exist in `.properties()`. If a property exists in the required array but is not in properties the engine infers it as any — mirroring JSON Schema.
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    name: (s) => s.string(),
+  })
+  .required(["name", "nonExistent"]) // evaluated
+  .build();
+type Ab = Jet.Infer<typeof schema>
+// {
+//    readonly name: string;
+//    nonExistent: any; // type any
+// }
+```
+
+<Callout type="info">
+  Without the property being defined in properties, `.required(["name", "nonExistent"])` when evaluated by the engine, gives `nonExistent` type `any`.
+</Callout>
+
+## Nested objects
+
+Objects nest to any depth with full inference at every level.
+
+```typescript
+const companySchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.number(),
+    name: (s) => s.string(),
+    address: (s) =>
+      s
+        .object()
+        .properties({
+          street: (s) => s.string(),
+          city: (s) => s.string(),
+          country: (s) => s.string(),
+        })
+        .required(["street", "city", "country"]),
+    contact: (s) =>
+      s
+        .object()
+        .properties({
+          email: (s) => s.string(),
+          phone: (s) => s.string(),
+        })
+        .required(["email"]),
+  })
+  .required(["id", "name", "address"])
+  .build();
+
+type Company = Jet.Infer<typeof companySchema>;
+// {
+//   id: number;
+//   name: string;
+//   address: { street: string; city: string; country: string };
+//   contact?: { email: string; phone?: string };
+// }
+```
+
+<Callout type="warning">
+  TypeScript has a recursion depth limit — very deeply nested schemas can hit it.
+</Callout>
+
+## Empty objects
+
+```typescript
+const emptyObjectSchema = new SchemaBuilder().object().build();
+type EmptyObject = Jet.Infer<typeof emptyObjectSchema>;
+// Record<string, any> — allows any properties
+```

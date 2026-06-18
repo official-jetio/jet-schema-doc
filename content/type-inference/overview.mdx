@@ -1,0 +1,118 @@
+---
+title: Overview & Philosophy
+description: Spec-compliant type inference with Jet.Infer — a single source of truth for validation and types.
+---
+
+import { Callout } from "nextra/components";
+
+# Overview & Philosophy
+
+Get automatic, JSON-Schema-compliant TypeScript types from your schemas with `Jet.Infer<>` — a single source of truth for both validation and types.
+
+```typescript
+import { SchemaBuilder, Jet, JetValidator } from "@jetio/schema-builder";
+
+const userSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.number(),
+    name: (s) => s.string(),
+    email: (s) => s.string().format("email"),
+  })
+  .required(["id", "name", "email"])
+  .build();
+
+// Automatically infer the TypeScript type
+type User = Jet.Infer<typeof userSchema>;
+// { id: number; name: string; email: string }
+
+const validate = new JetValidator().compile(userSchema);
+
+const user: User = {
+  id: 1,
+  name: "Alice",
+  email: "alice@example.com",
+};
+
+if (validate(user)) {
+  console.log("Valid!", user.name); // TypeScript knows user.name exists
+}
+```
+
+## Spec-compliant inference
+
+Most schema builders generate types that *look* like your code. `@jetio/schema-builder` generates types that *behave* like the JSON Schema spec. Your TypeScript types are a 1:1 reflection of your runtime validation — if the validator rejects it, TypeScript rejects it too.
+
+<Callout type="info">
+  This is a **JSON Schema compliant validator with type inference built on top** — the end
+  goal is compliance, giving you DX without sacrificing keywords or correctness.
+</Callout>
+
+## Design philosophy: spec compliance
+
+`@jetio/schema-builder`'s type inference is designed from the ground up to be **as close as possible to the JSON Schema specification**. This isn't just a schema builder — it's a JSON Schema compliant validator with TypeScript inference built on top. The end goal is compliance: amazing DX without sacrificing keywords or correctness.
+
+**Why this matters:**
+
+1. **True JSON Schema support.** Unlike libraries with limited support, this implements the actual spec, including advanced features:
+   - `if/then/else` + the custom `elseIf` conditionals
+   - `allOf`, `oneOf`, `anyOf` combinators
+   - `patternProperties` with template literals
+   - `additionalProperties` and `unevaluatedProperties`
+   - `prefixItems`, `items`, `additionalItems`, and `unevaluatedItems`
+   - Full Draft 06 → 2020-12 compliance
+
+2. **Everything is evaluated.** Following the spec, **all keywords in a schema are evaluated simultaneously**. When you add multiple constraints (`type`, `const`, `properties`, `allOf`, `oneOf`, `if/then`, …) they all apply together, exactly like JSON Schema.
+
+3. **Type system mirrors runtime.** The types from `Jet.Infer<>` accurately represent what the validator accepts at runtime. No surprises, no drift between types and validation.
+
+This was a **deliberate decision** — to be the most accurate TypeScript representation of JSON Schema possible. Even when it's hard (like `elseIf` type inference), the type system is pushed to its limits to match the spec.
+
+```typescript
+// Other libraries: a custom DSL with limited JSON Schema support
+
+// @jetio/schema-builder: the actual JSON Schema specification
+const schema = new SchemaBuilder()
+  .object()
+  .properties({ /* ... */ })
+  .allOf(/* ... */)
+  .oneOf(/* ... */)
+  .if(/* ... */).then(/* ... */).elseIf(/* ... */).then(/* ... */)
+  .build();
+
+// And TypeScript understands ALL of it
+type T = Jet.Infer<typeof schema>;
+```
+
+## Single source of truth
+
+Instead of maintaining a schema *and* a hand-written interface, write the schema once and let `Jet.Infer<>` derive the type.
+
+**Before — manual duplication:**
+
+```typescript
+const userSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    name: (s) => s.string(),
+    age: (s) => s.number(),
+    email: (s) => s.string().format("email"),
+  })
+  .required(["name", "email"])
+  .build();
+
+// Manually defined matching type — error-prone, drifts out of sync
+interface User {
+  name: string;
+  age?: number;
+  email: string;
+}
+```
+
+**After — type inference:**
+
+```typescript
+type User = Jet.Infer<typeof userSchema>;
+// { name: string; email: string; age?: number }
+// Change the schema and the type updates automatically.
+```

@@ -1,0 +1,172 @@
+---
+title: Combining Keywords
+description: All keywords are evaluated together — how properties, allOf, oneOf, and conditionals intersect in the inferred type.
+---
+
+import { Callout } from "nextra/components";
+
+# Combining Keywords
+
+Following the JSON Schema spec, **all** keywords are evaluated simultaneously. When multiple keywords are present (`type`, `properties`, `oneOf`, `allOf`, `if/then/else`, `patternProperties`), they create intersecting constraints that must all be satisfied — and the inferred type reflects every one of them.
+
+## How it works
+
+```typescript
+const combinedSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.number(),
+    name: (s) => s.string(),
+  })
+  .required(["id"])
+  .allOf(
+    (s) =>
+      s.object().properties({ createdAt: (s) => s.number() }).required(["createdAt"]),
+  )
+  .oneOf(
+    (s) =>
+      s
+        .object()
+        .properties({
+          type: (s) => s.const("user"),
+          email: (s) => s.string(),
+        })
+        .required(["type", "email"]),
+    (s) =>
+      s
+        .object()
+        .properties({
+          type: (s) => s.const("admin"),
+          permissions: (s) => s.array().items((s) => s.string()),
+        })
+        .required(["type", "permissions"]),
+  )
+  .build();
+
+type Combined = Jet.Infer<typeof combinedSchema>;
+// {
+//   id: number; createdAt: number; type: "user"; email: string; name?: string;
+// } | {
+//   id: number; createdAt: number; type: "admin"; permissions: string[]; name?: string;
+// }
+// Base props (id, name) and allOf props (createdAt) appear in BOTH branches;
+// oneOf creates the discriminated split.
+```
+
+## Layering combinators — counting branches
+
+With `if/then` only (no `else`), the `then` is merged into each `oneOf` branch as a single branch: **2 oneOf × 1 = 2** final branches.
+
+```typescript
+const ifThenOnly = new SchemaBuilder()
+  .allOf((s) =>
+    s
+      .object()
+      .properties({ createdAt: (s) => s.number(), updatedAt: (s) => s.number() })
+      .required(["createdAt", "updatedAt"]),
+  )
+  .oneOf(
+    (s) =>
+      s.object().properties({ recordType: (s) => s.const("invoice"), amount: (s) => s.number() }).required(["recordType", "amount"]),
+    (s) =>
+      s.object().properties({ recordType: (s) => s.const("receipt"), amount: (s) => s.number() }).required(["recordType", "amount"]),
+  )
+  .if((s) => s.object().properties({ amount: (s) => s.number().minimum(1000) }))
+  .then((s) =>
+    s.object().properties({ requiresApproval: (s) => s.const(true), approver: (s) => s.string() }).required(["requiresApproval", "approver"]),
+  )
+  .end()
+  .build();
+
+type IfThenOnly = Jet.Infer<typeof ifThenOnly>;
+// 2 branches (invoice / receipt), each with requiresApproval: true; approver: string
+```
+
+Add an `.else()` and the conditional becomes two outcomes, multiplying through each `oneOf` branch: **2 oneOf × 2 (then / else) = 4** final branches.
+
+```typescript
+const ifThenElse = new SchemaBuilder()
+  .allOf((s) =>
+    s
+      .object()
+      .properties({ createdAt: (s) => s.number(), updatedAt: (s) => s.number() })
+      .required(["createdAt", "updatedAt"]),
+  )
+  .oneOf(
+    (s) =>
+      s.object().properties({ recordType: (s) => s.const("invoice"), amount: (s) => s.number() }).required(["recordType", "amount"]),
+    (s) =>
+      s.object().properties({ recordType: (s) => s.const("receipt"), amount: (s) => s.number() }).required(["recordType", "amount"]),
+  )
+  .if((s) => s.object().properties({ amount: (s) => s.number().minimum(1000) }))
+  .then((s) =>
+    s.object().properties({ requiresApproval: (s) => s.const(true), approver: (s) => s.string() }).required(["requiresApproval", "approver"]),
+  )
+  .else((s) =>
+    s.object().properties({ requiresApproval: (s) => s.const(false) }).required(["requiresApproval"]),
+  )
+  .build();
+
+type IfThenElse = Jet.Infer<typeof ifThenElse>;
+// 4 branches: { invoice | receipt } × { requiresApproval: true; approver } | { requiresApproval: false }
+```
+
+<Callout type="info">
+  Branch math: `oneOf` branches × conditional outcomes. `if/then` alone is one outcome;
+  adding `else` makes two.
+</Callout>
+
+## Properties + pattern properties
+
+```typescript
+const fullPropertiesSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.number(),
+    name: (s) => s.string(),
+  })
+  .required(["id"])
+  .patternProperties({
+    "^meta_": (s) => s.string(),
+    "^flag_": (s) => s.boolean(),
+  })
+  .build();
+
+type FullProperties = Jet.Infer<typeof fullPropertiesSchema>;
+// {
+//   id: number; name?: string;
+//   [key: `meta_${string}`]: string;
+//   [key: `flag_${string}`]: boolean;
+// }
+```
+
+## Object + array types together
+
+```typescript
+const multiObjectArraySchema = new SchemaBuilder()
+  .object()
+  .properties({ name: (s) => s.string() })
+  .array()
+  .items((s) => s.number())
+  .build();
+
+type MultiObjectArray = Jet.Infer<typeof multiObjectArraySchema>;
+// { name?: string } | number[]
+```
+
+## Boolean schemas
+
+```typescript
+const anySchema = new SchemaBuilder().properties({ name: true }).build();
+type Any = Jet.Infer<typeof anySchema>;
+// name accepts anything
+
+const noneSchema = new SchemaBuilder().properties({ name: false }).build();
+type None = Jet.Infer<typeof noneSchema>;
+// name must not exist — { name: "" } always fails
+```
+
+<Callout type="info">
+  Every keyword you add is an **additive constraint**. TypeScript combines them all to give
+  the most precise type, mirroring exactly what the runtime validator enforces.
+</Callout>

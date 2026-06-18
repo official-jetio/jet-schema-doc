@@ -1,0 +1,75 @@
+---
+title: Advanced Features
+description: Schema metadata, custom keywords, $data references, and multiple schema IDs.
+---
+
+# Advanced Features
+
+## Schema metadata
+
+```typescript
+const schema = new SchemaBuilder()
+  .$id("https://example.com/schemas/user.json")
+  .$schema("https://json-schema.org/draft/2020-12/schema")
+  .title("User Schema")
+  .description("Represents a user in the system")
+  .object()
+  .properties({
+    id: (s) => s.integer(),
+  })
+  .build();
+```
+
+## Custom keywords
+
+Add any custom keyword with `.option()`.
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    status: (s) => s.string(),
+  })
+  .option("x-custom-validator", "myValidator")
+  .option("x-internal", true)
+  .build();
+// Result includes: "x-custom-validator": "myValidator"
+```
+
+## $data references
+
+Enable runtime data references.
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    minValue: (s) => s.number(),
+    maxValue: (s) => s.number(),
+    currentValue: (s) =>
+      s
+        .number()
+        .minimum({ $data: "1/minValue" })
+        .maximum({ $data: "1/maxValue" }),
+  })
+  .build();
+// currentValue validated against runtime min/max values
+```
+
+## Multiple schema IDs
+
+```typescript
+const schema = new SchemaBuilder()
+  .$id("https://example.com/base")
+  .$defs({
+    subSchema: (s) =>
+      s
+        .$id("sub-schema.json") // relative ID
+        .object()
+        .properties({
+          value: (s) => s.string(),
+        }),
+  })
+  .build();
+// Resolves to: https://example.com/sub-schema.json
+```

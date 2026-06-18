@@ -1,0 +1,69 @@
+---
+title: Boolean Schemas
+description: How true / false behave wherever a schema is accepted.
+---
+
+import { Callout } from "nextra/components";
+
+# Boolean Schemas
+
+Many keywords accept `true`, `false`, a schema object, or a builder callback. Boolean values have special meanings.
+
+## Object keywords
+
+```typescript
+// additionalProperties
+.additionalProperties(false)           // No extra properties allowed
+.additionalProperties(true)            // Any extra properties allowed (default)
+.additionalProperties((s) => s.string()) // Extra properties must be strings
+
+// unevaluatedProperties
+.unevaluatedProperties(false)          // No unevaluated properties allowed
+.unevaluatedProperties(true)           // Any unevaluated properties allowed
+.unevaluatedProperties((s) => s.number()) // Unevaluated must be numbers
+```
+
+## Array keywords
+
+```typescript
+// items
+.items(false)               // Array must be empty
+.items(true)                // Any items allowed
+.items((s) => s.string())   // All items must be strings
+
+// additionalItems (Draft 7 and earlier)
+.additionalItems(false)             // No additional items beyond prefixItems
+.additionalItems(true)              // Any additional items allowed
+.additionalItems((s) => s.number()) // Additional items must be numbers
+
+// unevaluatedItems
+.unevaluatedItems(false)             // No unevaluated items allowed
+.unevaluatedItems(true)              // Any unevaluated items allowed
+.unevaluatedItems((s) => s.string()) // Unevaluated must be strings
+
+// contains
+.contains(true)                        // Array must have at least one item
+.contains(false)                       // Always fails
+.contains((s) => s.number().minimum(10)) // Must contain number >= 10
+```
+
+## Composition keywords
+
+```typescript
+// not
+.not(true)                  // Always fails (not true = false)
+.not(false)                 // Always passes (not false = true)
+.not((s) => s.string())     // Must not be a string
+
+// In anyOf / allOf / oneOf
+.anyOf(
+  true,                     // Always matches
+  (s) => s.string(),
+  { type: "number" },       // Plain JSON also works
+)
+```
+
+<Callout type="info">
+  In JSON Schema a boolean **is** a schema, so any keyword that accepts a schema also
+  accepts a boolean.
+</Callout>

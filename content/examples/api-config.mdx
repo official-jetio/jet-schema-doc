@@ -1,0 +1,75 @@
+---
+title: API Configuration
+description: An API config schema with reusable endpoint/auth definitions and auth-type conditionals.
+---
+
+# API Configuration
+
+Reusable `endpoint` and `auth` definitions, with the `auth` block switching required fields on its `type` via `if`/`elseIf`.
+
+```typescript
+const apiConfigSchema = new SchemaBuilder()
+  .$defs({
+    endpoint: (s) =>
+      s
+        .object()
+        .properties({
+          url: (s) => s.string().format("uri"),
+          method: (s) =>
+            s.string().enum(["GET", "POST", "PUT", "DELETE", "PATCH"]),
+          timeout: (s) => s.integer().minimum(100).maximum(30000),
+          retries: (s) => s.integer().minimum(0).maximum(5),
+        })
+        .required(["url", "method"]),
+    auth: (s) =>
+      s
+        .object()
+        .properties({ type: (s) => s.string() })
+        .if((s) => s.object().properties({ type: (s) => s.const("bearer") }))
+        .then((s) =>
+          s.object().properties({ token: (s) => s.string() }).required(["token"]),
+        )
+        .elseIf((s) => s.object().properties({ type: (s) => s.const("basic") }))
+        .then((s) =>
+          s
+            .object()
+            .properties({
+              username: (s) => s.string(),
+              password: (s) => s.string(),
+            })
+            .required(["username", "password"]),
+        )
+        .elseIf((s) => s.object().properties({ type: (s) => s.const("apikey") }))
+        .then((s) =>
+          s
+            .object()
+            .properties({
+              key: (s) => s.string(),
+              header: (s) => s.string().default("X-API-Key"),
+            })
+            .required(["key"]),
+        )
+        .end()
+        .required(["type"]),
+  })
+  .object()
+  .properties({
+    service: (s) => s.string().minLength(1),
+    baseUrl: (s) => s.string().format("uri"),
+    auth: (s) => s.$ref("#/$defs/auth"),
+    endpoints: (s) =>
+      s
+        .object()
+        .patternProperties({
+          "^[a-zA-Z][a-zA-Z0-9_]*$": (s) => s.$ref("#/$defs/endpoint"),
+        })
+        .minProperties(1),
+    logging: (s) =>
+      s.object().properties({
+        enabled: (s) => s.boolean().default(true),
+        level: (s) => s.string().enum(["debug", "info", "warn", "error"]),
+      }),
+  })
+  .required(["service", "baseUrl", "auth", "endpoints"])
+  .build();
+```

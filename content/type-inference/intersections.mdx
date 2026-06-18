@@ -1,0 +1,76 @@
+---
+title: Intersections (allOf)
+description: allOf merges schemas into one clean object instead of an unreadable intersection.
+---
+
+import { Callout } from "nextra/components";
+
+# Intersections (allOf)
+
+`allOf` requires data to satisfy **all** schemas at once. Instead of an unreadable `A & B & C`, `@jetio/schema-builder` recursively collapses everything into a single clean object — readable tooltips, and no TypeScript recursion-limit blowups.
+
+## Basic intersection
+
+```typescript
+const basePropsSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.number(),
+    createdAt: (s) => s.number(),
+  });
+
+const userPropsSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    name: (s) => s.string(),
+    email: (s) => s.string(),
+  });
+
+const userSchema = new SchemaBuilder()
+  .allOf(
+    (s) => s.extend(basePropsSchema),
+    (s) => s.extend(userPropsSchema),
+  )
+  .build();
+
+type User = Jet.Infer<typeof userSchema>;
+// { id?: number; createdAt?: number; name?: string; email?: string }
+```
+
+## Combining base with extensions
+
+Required fields from each branch are preserved.
+
+```typescript
+const timestampSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    createdAt: (s) => s.number(),
+    updatedAt: (s) => s.number(),
+  })
+  .required(["createdAt"]);
+
+const productSchema = new SchemaBuilder()
+  .allOf(
+    (s) => s.extend(timestampSchema),
+    (s) =>
+      s
+        .object()
+        .properties({
+          productId: (s) => s.string(),
+          name: (s) => s.string(),
+          price: (s) => s.number(),
+        })
+        .required(["productId", "name", "price"]),
+  )
+  .build();
+
+type Product = Jet.Infer<typeof productSchema>;
+// {
+//   createdAt: number;   // required from timestampSchema
+//   updatedAt?: number;
+//   productId: string;   // required
+//   name: string;        // required
+//   price: number;       // required
+// }
+```

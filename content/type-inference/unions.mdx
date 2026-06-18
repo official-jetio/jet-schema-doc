@@ -1,0 +1,122 @@
+---
+title: Unions (oneOf / anyOf)
+description: Discriminated unions, automatic oneOf exclusivity via never-marking, and how anyOf differs.
+---
+
+import { Callout } from "nextra/components";
+
+# Unions (oneOf / anyOf)
+
+## oneOf — exclusive union
+
+`oneOf` requires data to match **exactly one** schema.
+
+```typescript
+const idSchema = new SchemaBuilder()
+  .oneOf(
+    (s) => s.string().format("uuid"),
+    (s) => s.integer().minimum(1),
+  )
+  .build();
+type Id = Jet.Infer<typeof idSchema>;
+// string | number
+```
+
+### With a discriminator field
+
+When branches share a discriminator (here `success`), TypeScript narrows on it.
+
+```typescript
+const responseSchema = new SchemaBuilder()
+  .oneOf(
+    (s) =>
+      s
+        .object()
+        .properties({
+          success: (s) => s.const(true),
+          data: (s) => s.string(),
+        })
+        .required(["success", "data"]),
+    (s) =>
+      s
+        .object()
+        .properties({
+          success: (s) => s.const(false),
+          error: (s) => s.string(),
+        })
+        .required(["success", "error"]),
+  )
+  .build();
+
+type Response = Jet.Infer<typeof responseSchema>;
+// { success: true; data: string } | { success: false; error: string }
+```
+
+### Automatic exclusivity (no discriminator)
+
+This is the key difference from other libraries. Without a discriminator, most libs give you a plain `A | B` that lets you mix fields from both branches. `@jetio/schema-builder` enforces **strict exclusivity** — it finds the unique keys across branches and marks them `never` in the others, giving a true discriminated union with no tag field.
+
+```typescript
+const valueSchema = new SchemaBuilder()
+  .oneOf(
+    (s) =>
+      s
+        .object()
+        .properties({
+          id: (s) => s.number(),
+          name: (s) => s.string(),
+        })
+        .required(["id", "name"]),
+    (s) =>
+      s
+        .object()
+        .properties({
+          role: (s) => s.const("admin"),
+          permissions: (s) => s.array().items((s) => s.string()),
+        })
+        .required(["role", "permissions"]),
+  )
+  .build();
+
+type Value = Jet.Infer<typeof valueSchema>;
+// {
+//   id: number; name: string; role?: undefined; permissions?: undefined;
+// } | {
+//   role: "admin"; permissions: string[]; id?: undefined; name?: undefined;
+// }
+
+const ok: Value = { id: 2, name: "Ann" };               // ✅
+const bad: Value = { id: 2, name: "Ann", role: "admin" }; // ❌ can't mix branches
+```
+
+## anyOf — at least one match
+
+`anyOf` requires data to match **at least one** schema. It infers as a standard union; properties from multiple branches can coexist.
+
+```typescript
+const userInputSchema = new SchemaBuilder()
+  .anyOf(
+    (s) => s.string(),
+    (s) => s.number(),
+    (s) => s.boolean(),
+    (s) => s.null(),
+  )
+  .build();
+type UserInput = Jet.Infer<typeof userInputSchema>;
+// string | number | boolean | null
+```
+
+## oneOf vs anyOf
+
+- **oneOf** — exactly one schema matches (exclusive). Validation fails if data matches 0 or 2+ schemas.
+- **anyOf** — at least one matches (can match multiple). Validation succeeds if data matches 1+.
+
+```typescript
+// oneOf: { type: "b", val: "" } ❌ — type b expects "vas", not "val"
+// anyOf: { type: "b", val: "" } ✅ — allowed because branches can overlap
+```
+
+<Callout type="info">
+  If an `anyOf` has a shared discriminator it produces a discriminated union too — both
+  behaviours are expected. `oneOf` creates a discriminated union by default.
+</Callout>

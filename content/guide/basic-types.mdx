@@ -1,0 +1,110 @@
+---
+title: Basic Types
+description: Declare primitive types, build multi-type schemas, and use universal keywords.
+---
+
+import { Callout } from "nextra/components";
+
+# Basic Types
+
+## Simple type declarations
+
+```typescript
+// String
+new SchemaBuilder().string().build();
+// { type: "string" }
+
+// Number
+new SchemaBuilder().number().build();
+// { type: "number" }
+
+// Integer
+new SchemaBuilder().integer().build();
+// { type: "integer" }
+
+// Boolean
+new SchemaBuilder().boolean().build();
+// { type: "boolean" }
+
+// Null
+new SchemaBuilder().null().build();
+// { type: "null" }
+```
+
+## Multiple types
+
+Chain type methods to create a type array.
+
+```typescript
+const flexibleSchema = new SchemaBuilder().string().number().build();
+// { type: ["string", "number"] }
+
+const nullableString = new SchemaBuilder().string().null().minLength(5).build();
+// { type: ["string", "null"], minLength: 5 }
+```
+
+<Callout type="warning">
+  The **first** type you call determines which keywords TypeScript exposes. This matters
+  when adding constraints — see [TypeScript Type Locking](/guide/type-locking).
+</Callout>
+
+## Universal keywords
+
+These work with any type and are not locked to a specific type builder:
+
+```typescript
+const schema = new SchemaBuilder()
+  .$schema("https://json-schema.org/draft/2020-12/schema")
+  .$id("https://json-schema.org/draft/2020-12/schema")
+  .title("User Email")
+  .description("The user's primary email address")
+  .default("user@example.com")
+  .examples("alice@example.com", "bob@example.com")
+  .enum(["alice@example.com", "bob@example.com", "admin@example.com"])
+  .readOnly()
+  .build();
+```
+
+| Keyword                          | Description                            |
+| -------------------------------- | -------------------------------------- |
+| `.$schema(schema)`               | Schema draft                           |
+| `.$id(schemaId)`                 | Unique schema identifier               |
+| `.$ref(ref)`                     | Schema reference                       |
+| `.$dynamicRef(dynamicRef)`       | Dynamic schema reference               |
+| `.$anchor(anchor)`               | Schema identifier                      |
+| `.$dynamicAnchor(dynamicAnchor)` | Dynamic schema identifier              |
+| `.definitions(definitions)`      | Schema definitions (Draft 7 and below) |
+| `.$defs(defs)`                   | Schema definitions                     |
+| `.title(title)`                  | Human-readable title                   |
+| `.description(desc)`             | Human-readable description             |
+| `.default(value)`                | Default value                          |
+| `.examples(...values)`           | Example values                         |
+| `.enum(values)`                  | Array of values (any type)             |
+| `.const(value)`                  | Single allowed value (any type)        |
+| `.readOnly()`                    | Mark as read-only                      |
+| `.writeOnly()`                   | Mark as write-only                     |
+| `.not(schema)`                   | Negation                               |
+| `.anyOf(...schemas)`             | Match at least one                     |
+| `.allOf(...schemas)`             | Match all                              |
+| `.oneOf(...schemas)`             | Match exactly one                      |
+| `.if(condition)`                 | Conditional validation                 |
+| `.errorMessage(msg)`             | Custom error messages                  |
+| `.option(key, value)`            | Any custom keyword                     |
+
+These combine with any type:
+
+```typescript
+// Enum with numbers
+new SchemaBuilder().number().enum([1, 2, 3, 5, 8, 13]).build();
+
+// Const with boolean
+new SchemaBuilder().boolean().const(true).build();
+
+// Composition without a type
+new SchemaBuilder()
+  .anyOf(
+    (s) => s.string(),
+    (s) => s.number(),
+  )
+  .build();
+```

@@ -1,0 +1,93 @@
+---
+title: E-Commerce Product
+description: A complete product schema with $defs, nested objects, and category-conditional requirements.
+---
+
+# E-Commerce Product
+
+A full product schema combining `$defs`, references, arrays, and `if`/`then`/`elseIf` conditionals that add category-specific requirements.
+
+```typescript
+const productSchema = new SchemaBuilder()
+  .$id("https://example.com/schemas/product.json")
+  .$defs({
+    price: (s) =>
+      s
+        .object()
+        .properties({
+          amount: (s) => s.number().minimum(0),
+          currency: (s) => s.string().pattern("^[A-Z]{3}$"),
+        })
+        .required(["amount", "currency"]),
+    dimensions: (s) =>
+      s
+        .object()
+        .properties({
+          length: (s) => s.number().minimum(0),
+          width: (s) => s.number().minimum(0),
+          height: (s) => s.number().minimum(0),
+          unit: (s) => s.string().enum(["cm", "in", "m"]),
+        })
+        .required(["length", "width", "height", "unit"]),
+  })
+  .object()
+  .properties({
+    id: (s) => s.string().pattern("^PROD-\\d{6}$"),
+    name: (s) => s.string().minLength(3).maxLength(100),
+    description: (s) => s.string().maxLength(1000),
+    category: (s) =>
+      s.string().enum(["electronics", "clothing", "food", "books"]),
+    price: (s) => s.$ref("#/$defs/price"),
+    stock: (s) => s.integer().minimum(0),
+    dimensions: (s) => s.$ref("#/$defs/dimensions"),
+    tags: (s) =>
+      s
+        .array()
+        .items((s) => s.string())
+        .minItems(1)
+        .maxItems(10)
+        .uniqueItems(true),
+    availability: (s) =>
+      s.string().enum(["in_stock", "out_of_stock", "preorder"]),
+  })
+  .required(["id", "name", "category", "price", "stock", "availability"])
+  .if((s) =>
+    s.object().properties({ category: (s) => s.const("electronics") }),
+  )
+  .then((s) =>
+    s
+      .object()
+      .properties({
+        warranty: (s) =>
+          s
+            .object()
+            .properties({
+              months: (s) => s.integer().minimum(0),
+              type: (s) => s.string().enum(["limited", "full"]),
+            })
+            .required(["months", "type"]),
+      })
+      .required(["warranty"]),
+  )
+  .elseIf((s) =>
+    s.object().properties({ category: (s) => s.const("clothing") }),
+  )
+  .then((s) =>
+    s
+      .object()
+      .properties({
+        sizes: (s) =>
+          s
+            .array()
+            .items((s) => s.string().enum(["XS", "S", "M", "L", "XL", "XXL"]))
+            .minItems(1),
+        colors: (s) =>
+          s
+            .array()
+            .items((s) => s.string())
+            .minItems(1),
+      })
+      .required(["sizes", "colors"]),
+  )
+  .build();
+```

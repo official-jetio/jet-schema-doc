@@ -1,0 +1,59 @@
+---
+title: Common Patterns
+description: Reusable recipes — discriminated unions, pagination, and polymorphic IDs.
+---
+
+# Common Patterns
+
+## Discriminated unions
+
+```typescript
+const eventSchema = new SchemaBuilder()
+  .object()
+  .properties({ type: (s) => s.string() })
+  .required(["type"])
+  .oneOf(
+    (s) =>
+      s.object().properties({
+        type: (s) => s.const("click"),
+        x: (s) => s.number(),
+        y: (s) => s.number(),
+      }),
+    (s) =>
+      s.object().properties({
+        type: (s) => s.const("scroll"),
+        scrollY: (s) => s.number(),
+      }),
+  )
+  .build();
+```
+
+## Pagination
+
+A reusable factory that wraps any item schema.
+
+```typescript
+const paginatedSchema = (itemSchema: (s: SchemaBuilder) => SchemaBuilder) =>
+  new SchemaBuilder()
+    .object()
+    .properties({
+      items: (s) => s.array().items(itemSchema),
+      total: (s) => s.integer().minimum(0),
+      page: (s) => s.integer().minimum(1),
+      pageSize: (s) => s.integer().minimum(1).maximum(100),
+    })
+    .required(["items", "total", "page", "pageSize"])
+    .build();
+```
+
+## Polymorphic IDs
+
+```typescript
+const idSchema = new SchemaBuilder()
+  .anyOf(
+    (s) => s.string().pattern("^[0-9a-f]{24}$"), // MongoDB ObjectId
+    (s) => s.string().format("uuid"), // UUID
+    (s) => s.integer().minimum(1), // integer ID
+  )
+  .build();
+```

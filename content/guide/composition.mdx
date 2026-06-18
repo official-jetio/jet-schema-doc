@@ -1,0 +1,189 @@
+---
+title: Composition
+description: allOf, anyOf, oneOf, and not — intersection, union, exclusive union, and negation.
+---
+
+# Composition
+
+## allOf — schema intersection
+
+All schemas must validate (AND logic).
+
+```typescript
+const strictStringSchema = new SchemaBuilder()
+  .allOf(
+    (s) => s.string().minLength(5),
+    (s) => s.string().maxLength(10),
+    (s) => s.string().pattern("^[A-Z]"),
+  )
+  .build();
+// Must be 5–10 chars AND start with uppercase
+// Valid: "Hello", "World"   Invalid: "hi", "hello"
+```
+
+Combining a base with an extension:
+
+```typescript
+const baseUserSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.integer(),
+    name: (s) => s.string(),
+  })
+  .required(["id", "name"]);
+
+const adminUserSchema = new SchemaBuilder()
+  .allOf(
+    (s) => s.extend(baseUserSchema), // include all base properties
+    (s) =>
+      s
+        .object()
+        .properties({
+          permissions: (s) => s.array().items((s) => s.string()),
+          adminLevel: (s) => s.integer().minimum(1),
+        })
+        .required(["permissions"]),
+  )
+  .build();
+```
+
+## anyOf — schema union
+
+At least one schema must validate (OR logic).
+
+```typescript
+const flexibleIdSchema = new SchemaBuilder()
+  .anyOf(
+    (s) => s.string().pattern("^[A-Z]{3}\\d{3}$"), // e.g. "ABC123"
+    (s) => s.integer().minimum(1000), // e.g. 1234
+  )
+  .build();
+// Valid: "ABC123" or 5000   Invalid: "abc123", 500
+```
+
+A payment-method union:
+
+```typescript
+const paymentMethodSchema = new SchemaBuilder()
+  .object()
+  .properties({ type: (s) => s.string() })
+  .anyOf(
+    (s) =>
+      s
+        .object()
+        .properties({
+          type: (s) => s.const("credit_card"),
+          cardNumber: (s) => s.string(),
+          cvv: (s) => s.string(),
+        })
+        .required(["type", "cardNumber", "cvv"]),
+    (s) =>
+      s
+        .object()
+        .properties({
+          type: (s) => s.const("bank_transfer"),
+          accountNumber: (s) => s.string(),
+          routingNumber: (s) => s.string(),
+        })
+        .required(["type", "accountNumber", "routingNumber"]),
+    (s) =>
+      s
+        .object()
+        .properties({
+          type: (s) => s.const("paypal"),
+          email: (s) => s.string().format("email"),
+        })
+        .required(["type", "email"]),
+  )
+  .build();
+```
+
+## oneOf — exclusive schema union
+
+Exactly one schema must validate (XOR logic).
+
+```typescript
+const stringLengthSchema = new SchemaBuilder()
+  .oneOf(
+    (s) => s.string().maxLength(10), // short string
+    (s) => s.string().minLength(50), // long string
+  )
+  .build();
+// Valid: "hello", "this is a very long string..."
+// Invalid: "medium length string" (matches neither or both)
+```
+
+A discriminated union:
+
+```typescript
+const shapeSchema = new SchemaBuilder()
+  .oneOf(
+    (s) =>
+      s
+        .object()
+        .properties({
+          type: (s) => s.const("circle"),
+          radius: (s) => s.number().minimum(0),
+        })
+        .required(["type", "radius"]),
+    (s) =>
+      s
+        .object()
+        .properties({
+          type: (s) => s.const("rectangle"),
+          width: (s) => s.number().minimum(0),
+          height: (s) => s.number().minimum(0),
+        })
+        .required(["type", "width", "height"]),
+    (s) =>
+      s
+        .object()
+        .properties({
+          type: (s) => s.const("triangle"),
+          base: (s) => s.number().minimum(0),
+          height: (s) => s.number().minimum(0),
+        })
+        .required(["type", "base", "height"]),
+  )
+  .build();
+// Valid: { type: "circle", radius: 5 }
+// Invalid: { type: "circle", radius: 5, width: 10 } (matches multiple)
+```
+
+## not — schema negation
+
+The schema must NOT validate.
+
+```typescript
+const notStringSchema = new SchemaBuilder().not((s) => s.string()).build();
+// Valid: 123, true, {}, []   Invalid: "hello"
+```
+
+An exclusion pattern:
+
+```typescript
+// Accept any string EXCEPT email addresses
+const nonEmailStringSchema = new SchemaBuilder()
+  .string()
+  .not((s) => s.string().format("email"))
+  .build();
+// Valid: "hello", "test123"   Invalid: "user@example.com"
+```
+
+## Complex composition
+
+```typescript
+const advancedSchema = new SchemaBuilder()
+  .object()
+  .properties({ value: (s) => s.string() })
+  .allOf((s) => s.object().required(["value"]))
+  .anyOf(
+    (s) => s.object().properties({ type: (s) => s.string() }).required(["type"]),
+    (s) =>
+      s.object().properties({ category: (s) => s.string() }).required(["category"]),
+  )
+  .not((s) => s.object().required(["type", "category"]))
+  .build();
+// Valid: { value: "x", type: "a" } or { value: "x", category: "b" }
+// Invalid: { value: "x", type: "a", category: "b" } (has both)
+```

@@ -1,0 +1,110 @@
+---
+title: Conditionals
+description: if / then / else, the elseIf extension, and nested conditional logic.
+---
+
+import { Callout } from "nextra/components";
+
+# Conditionals
+
+## if / then / else
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    type: (s) => s.string(),
+    username: (s) => s.string(),
+    apiKey: (s) => s.string(),
+  })
+  .if((s) => s.object().properties({ type: (s) => s.const("user") }))
+  .then((s) => s.object().required(["username"]))
+  .else((s) => s.object().required(["apiKey"]))
+  .build();
+// type === "user" → must have username; otherwise → must have apiKey
+```
+
+## elseIf — multiple conditions
+
+The `elseIf` extension chains conditions without deep nesting.
+
+```typescript
+const accountSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    accountType: (s) => s.string(),
+    username: (s) => s.string(),
+    email: (s) => s.string(),
+    companyName: (s) => s.string(),
+    taxId: (s) => s.string(),
+  })
+  .required(["accountType"])
+  .if((s) => s.object().properties({ accountType: (s) => s.const("personal") }))
+  .then((s) => s.object().required(["username", "email"]))
+  .elseIf((s) =>
+    s.object().properties({ accountType: (s) => s.const("business") }),
+  )
+  .then((s) => s.object().required(["companyName", "taxId", "email"]))
+  .elseIf((s) =>
+    s.object().properties({ accountType: (s) => s.const("enterprise") }),
+  )
+  .then((s) => s.object().required(["companyName", "taxId"]))
+  .else((s) => s.object().required(["email"]))
+  .build();
+```
+
+This generates `{ if, then, elseIf: [{ if, then }, ...], else }`, which Jet-Validator handles during compilation.
+
+<Callout type="info">
+  **Without `elseIf`** you'd nest each condition inside the previous `else` — a deep,
+  hard-to-read chain. `elseIf` flattens it.
+</Callout>
+```typescript
+// Standard approach - deeply nested
+.if(...)
+  .then(...)
+  .else(s => s
+    .if(...)
+      .then(...)
+      .else(s => s
+        .if(...)
+          .then(...)
+        .else(...)
+      )
+  )
+// Nested hell!
+```
+
+## Nested conditionals
+
+```typescript
+const advancedRulesSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    country: (s) => s.string(),
+    state: (s) => s.string(),
+    zipCode: (s) => s.string(),
+    postalCode: (s) => s.string(),
+  })
+  .if((s) => s.object().properties({ country: (s) => s.const("US") }))
+  .then((s) =>
+    s
+      .object()
+      .required(["state", "zipCode"])
+      .if((s) => s.object().properties({ state: (s) => s.const("California") }))
+      .then((s) =>
+        s.object().properties({
+          zipCode: (s) => s.string().pattern("^9[0-6]\\d{3}$"),
+        }),
+      )
+      .end(), // only and always call .end() if you don't need else
+  )
+  .elseIf((s) => s.object().properties({ country: (s) => s.const("UK") }))
+  .then((s) => s.object().required(["postalCode"]))
+  .end()
+  .build();
+```
+
+<Callout type="warning">
+  If you don't end a conditional with `.else()`, always call `.end()` to close it.
+</Callout>

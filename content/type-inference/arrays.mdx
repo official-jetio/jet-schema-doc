@@ -1,0 +1,169 @@
+---
+title: Arrays
+description: Homogeneous arrays, tuples with prefixItems/items, rest elements, and runtime-only constraints.
+---
+
+import { Callout } from "nextra/components";
+
+# Arrays
+
+## Homogeneous arrays (items)
+
+Draft 2019-09 and above. All elements share a type.
+
+```typescript
+const tagsSchema = new SchemaBuilder()
+  .array()
+  .items((s) => s.string())
+  .build();
+type Tags = Jet.Infer<typeof tagsSchema>;
+// string[]
+
+const usersSchema = new SchemaBuilder()
+  .array()
+  .items((s) =>
+    s
+      .object()
+      .properties({
+        id: (s) => s.number(),
+        name: (s) => s.string(),
+      })
+      .required(["id", "name"]),
+  )
+  .build();
+type Users = Jet.Infer<typeof usersSchema>;
+// { id: number; name: string }[]
+
+const matrixSchema = new SchemaBuilder()
+  .array()
+  .items((s) => s.array().items((s) => s.number()))
+  .build();
+type Matrix = Jet.Infer<typeof matrixSchema>;
+// number[][]
+```
+
+## Tuples with prefixItems
+
+Draft 2020-12. Fixed positions, each with its own type.
+
+```typescript
+const coordinateSchema = new SchemaBuilder()
+  .array()
+  .prefixItems(
+    (s) => s.number(), // latitude
+    (s) => s.number(), // longitude
+  )
+  .build();
+type Coordinate = Jet.Infer<typeof coordinateSchema>;
+// [number, number]
+
+const recordSchema = new SchemaBuilder()
+  .array()
+  .prefixItems(
+    (s) => s.string(),
+    (s) => s.number(),
+    (s) => s.boolean(),
+    (s) => s.null(),
+  )
+  .build();
+type Record = Jet.Infer<typeof recordSchema>;
+// [string, number, boolean, null]
+
+const userActionSchema = new SchemaBuilder()
+  .array()
+  .prefixItems(
+    (s) => s.string(),  // action type
+    (s) => s.object()
+      .properties({
+        userId: (s) => s.number(),
+        timestamp: (s) => s.number()
+      })
+      .required(['userId', 'timestamp'])
+  )
+  .build();
+
+type UserAction = Jet.Infer<typeof userActionSchema>;
+// Result: [string, { userId: number; timestamp: number }]
+```
+
+### Tuples with rest elements
+
+Combine `.prefixItems()` with `.items()` for a fixed prefix plus variable rest.
+
+```typescript
+const featureSchema = new SchemaBuilder()
+  .array()
+  .prefixItems(
+    (s) => s.string(), // feature name
+    (s) => s.number(), // version number
+  )
+  .items((s) => s.boolean()) // ...feature flags
+  .build();
+type Feature = Jet.Infer<typeof featureSchema>;
+// [string, number, ...boolean[]]
+
+// More complex example with object rest elements
+const logEntrySchema = new SchemaBuilder()
+  .array()
+  .prefixItems(
+    (s) => s.string(),  // log level
+    (s) => s.number()   // timestamp
+  )
+  .items((s) => s.object()
+    .properties({
+      key: (s) => s.string(),
+      value: (s) => s.string()
+    })
+    .required(['key', 'value'])
+  )
+  .build();
+
+type LogEntry = Jet.Infer<typeof logEntrySchema>;
+// Result: [string, number, ...{ key: string; value: string }[]]
+```
+
+## Tuples with items (Draft 07 and below)
+
+In older drafts, array-form `.items()` defines the tuple and `.additionalItems()` defines the rest.
+
+```typescript
+const coordinateSchema = new SchemaBuilder()
+  .array()
+  .items(
+    (s) => s.number(),
+    (s) => s.number(),
+  )
+  .build();
+type Coordinate = Jet.Infer<typeof coordinateSchema>;
+// [number, number]
+
+const featureSchema = new SchemaBuilder()
+  .array()
+  .items(
+    (s) => s.string(),
+    (s) => s.number(),
+  )
+  .additionalItems((s) => s.boolean())
+  .build();
+type Feature = Jet.Infer<typeof featureSchema>;
+// [string, number, ...boolean[]]
+```
+
+## Array constraints
+
+```typescript
+const limitedArraySchema = new SchemaBuilder()
+  .array()
+  .items((s) => s.string())
+  .minItems(2)
+  .maxItems(5)
+  .uniqueItems(true)
+  .build();
+type LimitedArray = Jet.Infer<typeof limitedArraySchema>;
+// string[]
+```
+
+<Callout type="info">
+  `minItems`, `maxItems`, and `uniqueItems` are enforced at **runtime** but don't appear in
+  the type — TypeScript can't express "array of length 2–5".
+</Callout>

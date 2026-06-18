@@ -1,0 +1,68 @@
+---
+title: Pattern Properties
+description: Regex patterns mapped to TypeScript template-literal keys, and which patterns are supported.
+---
+
+import { Callout } from "nextra/components";
+
+# Pattern Properties
+
+Regex patterns map directly to TypeScript template literals — `^user_` becomes `` `user_${string}` `` — giving type-safe dynamic keys with no extra work.
+
+## Basic pattern properties
+
+```typescript
+const configSchema = new SchemaBuilder()
+  .object()
+  .properties({ appName: (s) => s.string() })
+  .patternProperties({
+    "^env_": (s) => s.string(), // properties starting with "env_"
+    "^feature_": (s) => s.boolean(), // properties starting with "feature_"
+    "_id$": (s) => s.number(), // properties ending with "_id"
+  })
+  .required(["appName"])
+  .build();
+
+type Config = Jet.Infer<typeof configSchema>;
+// {
+//   appName: string;
+//   [key: `env_${string}`]: string;
+//   [key: `feature_${string}`]: boolean;
+//   [key: `${string}_id`]: number;
+// }
+```
+
+## Supported pattern types
+
+```typescript
+// Prefix with separator
+"^data_"   → `data_${string}`
+"^api-"    → `api-${string}`
+"^config." → `config.${string}`
+
+// Prefix without separator
+"^user"    → `user${string}`
+
+// Suffix with separator
+"_id$"     → `${string}_id`
+"-name$"   → `${string}-name`
+".json$"   → `${string}.json`
+
+// Suffix without separator
+"Type$"    → `${string}Type`
+
+// Infix (contains separator)
+"_"        → `${string}_${string}`
+"-"        → `${string}-${string}`
+"."        → `${string}.${string}`
+
+// Wildcards and complex patterns fall back to string
+".*"          → string
+"^[a-zA-Z].*" → string
+".*[0-9]$"    → string
+```
+
+<Callout type="warning">
+  Complex regex like `^[a-z]{3,5}$` or `\d+` fall back to `string`. Only common, simple
+  patterns convert to template literals.
+</Callout>

@@ -1,0 +1,60 @@
+---
+title: Definitions
+description: Reusable schema components with $defs and the legacy definitions keyword.
+---
+
+# Definitions
+
+## $defs — schema definitions
+
+Define reusable schema components.
+
+```typescript
+const schema = new SchemaBuilder()
+  .$defs({
+    emailString: (s) => s.string().format("email"),
+    phoneString: (s) => s.string().pattern("^\\+?[1-9]\\d{1,14}$"),
+    address: (s) =>
+      s
+        .object()
+        .properties({
+          street: (s) => s.string(),
+          city: (s) => s.string(),
+          zipCode: (s) => s.string(),
+        })
+        .required(["street", "city"]),
+    person: (s) =>
+      s.object().properties({
+        name: (s) => s.string(),
+        email: (s) => s.$ref("#/$defs/emailString"),
+        phone: (s) => s.$ref("#/$defs/phoneString"),
+        address: (s) => s.$ref("#/$defs/address"),
+      }),
+  })
+  .object()
+  .properties({
+    customer: (s) => s.$ref("#/$defs/person"),
+    billing: (s) => s.$ref("#/$defs/address"),
+  })
+  .build();
+```
+
+## definitions (legacy)
+
+For JSON Schema Draft 6/7 compatibility.
+
+```typescript
+const draft7Schema = new SchemaBuilder()
+  .definitions({
+    user: (s) =>
+      s.object().properties({
+        id: (s) => s.integer(),
+        name: (s) => s.string(),
+      }),
+  })
+  .object()
+  .properties({
+    author: (s) => s.$ref("#/definitions/user"),
+  })
+  .build();
+```

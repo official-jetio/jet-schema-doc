@@ -1,0 +1,85 @@
+---
+title: SchemaBuilder
+description: Type, metadata, value, composition, conditional, reference, error, and utility methods on the base builder.
+---
+
+# SchemaBuilder Class
+```typescript
+const b = new SchemaBuilder();
+```
+## Type methods
+
+Each returns a type-specific builder. Once you call one, the builder locks to that type and exposes only its constraints — see [type locking](/guide/type-locking).
+
+| Method       | Returns               | Description         |
+| ------------ | --------------------- | ------------------- |
+| `.string()`  | `StringSchemaBuilder` | Set type to string  |
+| `.number()`  | `NumberSchemaBuilder` | Set type to number  |
+| `.integer()` | `NumberSchemaBuilder` | Set type to integer |
+| `.boolean()` | `BooleanSchema`       | Set type to boolean |
+| `.null()`    | `NullSchema`          | Set type to null    |
+| `.array()`   | `ArraySchemaBuilder`  | Set type to array   |
+| `.object()`  | `ObjectSchemaBuilder` | Set type to object  |
+
+## Metadata methods
+
+| Method                  | Parameters    | Description            |
+| ----------------------- | ------------- | ---------------------- |
+| `.$id(id)`              | `string`      | Set $id (Draft 6+)     |
+| `.$schema(uri)`         | `string`      | Set $schema            |
+| `.$anchor(name)`        | `string`      | Set $anchor            |
+| `.$dynamicAnchor(name)` | `string`      | Set $dynamicAnchor     |
+| `.title(title)`         | `string`      | Set title              |
+| `.description(desc)`    | `string`      | Set description        |
+| `.default(value)`       | `any`         | Set default value      |
+| `.examples(...values)`  | `any[]`       | Set examples           |
+| `.option(key, value)`   | `string, any` | Set any custom keyword |
+
+## Value constraint methods
+
+| Method          | Parameters         | Description              |
+| --------------- | ------------------ | ------------------------ |
+| `.enum(values)` | `any[]` or `$data` | Set allowed values       |
+| `.const(value)` | `any`              | Set single allowed value |
+
+## Composition methods
+
+| Method               | Parameters                                                    | Description               |
+| -------------------- | ------------------------------------------------------------- | ------------------------- |
+| `.not(schema)`       | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder`      | Negate a schema           |
+| `.anyOf(...schemas)` | `BuilderSchema[]` or `((b: SchemaBuilder) => SchemaBuilder)[]` | Match at least one schema |
+| `.allOf(...schemas)` | `BuilderSchema[]` or `((b: SchemaBuilder) => SchemaBuilder)[]` | Match all schemas         |
+| `.oneOf(...schemas)` | `BuilderSchema[]` or `((b: SchemaBuilder) => SchemaBuilder)[]` | Match exactly one schema  |
+
+`BuilderSchema = SchemaDefinition | SchemaBuilder<any> | boolean`
+
+## Conditional methods
+
+| Method           | Parameters                                               | Returns            | Description       |
+| ---------------- | -------------------------------------------------------- | ------------------ | ----------------- |
+| `.if(condition)` | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder` | `ConditionBuilder` | Start conditional |
+
+## Reference methods
+
+| Method               | Parameters                                                                               | Description                   |
+| -------------------- | ---------------------------------------------------------------------------------------- | ----------------------------- |
+| `.$ref(ref)`         | `string` or `RefBuilder` or `(r: RefBuilder) => RefBuilder`                               | Set $ref                      |
+| `.$dynamicRef(ref)`  | `string` or `RefBuilder` or `(r: RefBuilder) => RefBuilder`                               | Set $dynamicRef               |
+| `.$defs(defs)`       | `Record<string, BuilderSchema>` or `Record<string, (b: SchemaBuilder) => SchemaBuilder>` | Set $defs (Draft 2019-09+)    |
+| `.definitions(defs)` | `Record<string, BuilderSchema>` or `Record<string, (b: SchemaBuilder) => SchemaBuilder>` | Set definitions (Draft 04-07) |
+
+## Error message methods
+
+| Method               | Parameters                                                       | Description              |
+| -------------------- | --------------------------------------------------------------- | ------------------------ |
+| `.errorMessage(msg)` | `string` or `Record<string, string \| Record<string, string>>` | Set custom error message |
+
+## Utility methods
+
+| Method            | Parameters                     | Returns                  | Description                    |
+| ----------------- | ------------------------------ | ------------------------ | ------------------------------ |
+| `.build()`        | —                              | `S`                      | Return the final schema object |
+| `.extend(schema)` | `BuilderSchema`                | `SchemaBuilder`          | Extend from an existing schema |
+| `.json(schema)`   | `SchemaDefinition` or `string` | `SchemaBuilder`          | Load from JSON object/string   |
+| `.url(url)`       | `string`                       | `Promise<SchemaBuilder>` | Load from URL (async)          |
+| `.file(path)`     | `string`                       | `Promise<SchemaBuilder>` | Load from file (async)         |

@@ -1,0 +1,24 @@
+---
+title: Draft Support
+description: Supported JSON Schema keywords from Draft 06 through Draft 2020-12.
+---
+
+import { Callout } from "nextra/components";
+
+# Draft Support
+
+The Schema Builder supports JSON Schema keywords from **Draft 06 through Draft 2020-12**.
+
+| Draft           | Keywords added                                                                          |
+| --------------- | --------------------------------------------------------------------------------------- |
+| Draft 06/07     | `definitions`, `dependencies`, `items` (array form), `additionalItems`                  |
+| Draft 2019-09   | `$defs`, `dependentSchemas`, `dependentRequired`, `unevaluatedProperties`, `unevaluatedItems` |
+| Draft 2020-12   | `prefixItems`, `$dynamicRef`, `$dynamicAnchor`                                           |
+| Extension       | `elseIf` (Jet-Validator extension for cleaner conditionals)                             |
+
+Use the appropriate keywords for your target draft version. The builder doesn't enforce draft restrictions — you can mix keywords, but ensure your validator supports them.
+
+<Callout type="info">
+  The builder follows JSON Schema rules, which means a schema can be either a standard JSON
+  Schema object **or** a boolean. See [Boolean Schemas](/guide/boolean-schemas).
+</Callout>

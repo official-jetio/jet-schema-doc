@@ -1,0 +1,19 @@
+---
+title: NumberSchemaBuilder
+description: Number- and integer-specific constraint methods.
+---
+
+# NumberSchemaBuilder
+
+Provides the universal and metadata methods (`$id`, `title`, `description`, `enum`, `const`, `anyOf`, `allOf`, `oneOf`, `not`, `if`, `errorMessage`, `extend`, `build`, …) plus the number or integer-specific constraints below. Per [type locking](/guide/type-locking), only this type's constraints are accessible once the builder is locked to number.
+
+| Method                 | Parameters                               | Returns         | Description                     |
+| ---------------------- | ---------------------------------------- | --------------- | ------------------------------- |
+| `.minimum(n)`          | `number` or `$data`                      | `SchemaBuilder` | Minimum value (inclusive)       |
+| `.maximum(n)`          | `number` or `$data`                      | `SchemaBuilder` | Maximum value (inclusive)       |
+| `.exclusiveMinimum(n)` | `number` or `$data`                      | `SchemaBuilder` | Minimum value (exclusive)       |
+| `.exclusiveMaximum(n)` | `number` or `$data`                      | `SchemaBuilder` | Maximum value (exclusive)       |
+| `.multipleOf(n)`       | `number` or `$data`                      | `SchemaBuilder` | Must be a multiple of n         |
+| `.positive()`          | —                                        | `SchemaBuilder` | Shorthand for minimum(0)        |
+| `.negative()`          | —                                        | `SchemaBuilder` | Shorthand for maximum(0)        |
+| `.range(min, max)`     | `number` or `$data`, `number` or `$data` | `SchemaBuilder` | Shorthand for minimum + maximum |

@@ -1,0 +1,76 @@
+---
+title: Mixed Approaches
+description: Freely combine raw JSON Schema objects with builder syntax, and when to use each.
+---
+
+# Mixed Approaches
+
+You can freely mix JSON objects with builder syntax.
+
+## JSON in properties
+
+```typescript
+const schema = new SchemaBuilder()
+  .object()
+  .properties({
+    // Plain JSON
+    simpleField: { type: "string", minLength: 5 },
+
+    // Builder syntax
+    complexField: (s) =>
+      s.object().properties({
+        nested: (s) => s.number(),
+      }),
+
+    // Mix in the same schema
+    mixed: {
+      type: "object",
+      properties: {
+        plain: { type: "string" },
+      },
+    },
+  })
+  .build();
+```
+
+## JSON in definitions
+
+```typescript
+const schema = new SchemaBuilder()
+  .$defs({
+    simpleType: { type: "string", format: "email" }, // plain JSON
+    complexType: (s) =>
+      s.object().properties({ value: (s) => s.number() }), // builder
+    mixedType: {
+      type: "object",
+      properties: {
+        items: { type: "array", items: { type: "string" } },
+      },
+    },
+  })
+  .build();
+```
+
+## JSON in composition
+
+```typescript
+const schema = new SchemaBuilder()
+  .anyOf(
+    { type: "string", minLength: 5 }, // plain JSON
+    (s) => s.number().minimum(0), // builder
+    true, // boolean
+    {
+      type: "object",
+      properties: { special: { type: "boolean" } },
+    },
+  )
+  .build();
+```
+
+## When to use each
+
+**Use the builder when** building schemas programmatically, you want autocomplete and type safety, you have complex nested structures, you're reusing components, or generating schemas dynamically.
+
+**Use JSON when** copying from existing JSON Schema, in performance-critical paths, or interfacing with external systems.
+
+**Mix when** migrating existing schemas, some parts are static and others dynamic, or balancing readability and flexibility.

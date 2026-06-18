@@ -1,0 +1,120 @@
+---
+title: Primitives & Multiple Types
+description: How string, number, integer, boolean, null, and multi-type schemas infer.
+---
+
+import { Callout } from "nextra/components";
+
+# Primitives & Multiple Types
+
+## String
+
+```typescript
+const nameSchema = new SchemaBuilder().string().build();
+type Name = Jet.Infer<typeof nameSchema>;
+// string
+
+// String with constraints (constraints validated at runtime, not in types)
+const emailSchema = new SchemaBuilder()
+  .string()
+  .format('email')
+  .minLength(5)
+  .maxLength(100)
+  .build();
+
+type Email = Jet.Infer<typeof emailSchema>;
+// Result: string (Constraints are run time events)
+```
+
+<Callout type="info">
+  String constraints (`.format()`, `.pattern()`, `.minLength()`, `.maxLength()`) are enforced
+  at **runtime** but infer as `string` — TypeScript has no refinement type for "string
+  matching email format".
+</Callout>
+
+## Number & Integer
+
+```typescript
+const ageSchema = new SchemaBuilder().number().build();
+type Age = Jet.Infer<typeof ageSchema>;
+// number
+
+// Number with constraints
+const scoreSchema = new SchemaBuilder()
+  .number()
+  .minimum(0)
+  .maximum(100)
+  .multipleOf(5)
+  .build();
+
+type Score = Jet.Infer<typeof scoreSchema>;
+// Result: number (constraints enforced at runtime only)
+
+const countSchema = new SchemaBuilder().integer().minimum(0).build();
+type Count = Jet.Infer<typeof countSchema>;
+// number (TypeScript has no separate integer type; runtime enforces it)
+```
+
+## Boolean & Null
+
+```typescript
+const activeSchema = new SchemaBuilder().boolean().build();
+type Active = Jet.Infer<typeof activeSchema>;
+// boolean
+
+const emptySchema = new SchemaBuilder().null().build();
+type Empty = Jet.Infer<typeof emptySchema>;
+// null
+
+const nullableStringSchema = new SchemaBuilder().string().null().build();
+type NullableString = Jet.Infer<typeof nullableStringSchema>;
+// string | null
+```
+
+## Multiple types
+
+Chain type methods to infer a union of all specified types.
+
+```typescript
+const flexibleIdSchema = new SchemaBuilder().string().number().build();
+type FlexibleId = Jet.Infer<typeof flexibleIdSchema>;
+// string | number
+
+const multiTypeSchema = new SchemaBuilder().string().number().boolean().build();
+type MultiType = Jet.Infer<typeof multiTypeSchema>;
+// string | number | boolean
+
+const containerSchema = new SchemaBuilder()
+  .object()
+  .properties({ name: (s) => s.string() })
+  .array()
+  .items((s) => s.number())
+  .build();
+type Container = Jet.Infer<typeof containerSchema>;
+// { name?: string } | number[]
+```
+
+### With constraints
+
+Constraints apply to their matching types. TypeScript only exposes the methods for the closest type while building — branch out by declaring a new type.
+
+```typescript
+// Correct: define each type's constraints before branching
+const constrainedSchema = new SchemaBuilder()
+  .string()
+  .minLength(5) // applies to strings
+  .maxLength(20)
+  .number()
+  .minimum(0) // applies to numbers
+  .maximum(100)
+  .build();
+
+type Constrained = Jet.Infer<typeof constrainedSchema>;
+// string | number (constraints validated at runtime)
+```
+
+<Callout type="warning">
+  Calling a typed constraint for the wrong active type fails. After `.string().number()`,
+  `minLength` is no longer available — switch back to `.string()` first. Universal keywords
+  (`const`, `enum`, `anyOf`, …) are unaffected.
+</Callout>

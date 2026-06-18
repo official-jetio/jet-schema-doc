@@ -1,0 +1,174 @@
+---
+title: Schema Reuse & Extension
+description: Clone and modify schemas with extend(), understand merge vs replace, and load external schemas.
+---
+
+import { Callout } from "nextra/components";
+
+# Schema Reuse & Extension
+
+## extend() — clone & modify
+
+```typescript
+const baseUser = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.integer(),
+    name: (s) => s.string(),
+    email: (s) => s.string().format("email"),
+  })
+  .required(["id", "name"]);
+
+const adminUser = new SchemaBuilder()
+  .extend(baseUser) // clone the schema
+  .properties({
+    role: (s) => s.string().const("admin"),
+    permissions: (s) => s.array().items((s) => s.string()),
+  })
+  .required(["role", "permissions"])
+  .build();
+
+// baseUser is unchanged
+// adminUser has: id, name, email, role, permissions
+```
+
+<Callout type="warning">
+  Always extend a schema **before** building on it. You can replace most keywords by
+  redefining them after extending.
+</Callout>
+
+<Callout type="info">
+  **`$ref` vs `.extend()` for types** — `$ref` resolves at validation time but gives
+  TypeScript `{ author?: unknown }`. `.extend()` inlines the schema, so you get
+  `{ author?: { id?: number } }` — typed all the way down. See
+  [Type Inference → Schema Extension](/type-inference/extension) for the full type-level story.
+</Callout>
+
+## Merge vs replace
+
+**Keywords that MERGE** (new values are added to existing ones):
+
+- `properties` — new properties are added
+- `patternProperties` — new patterns are added
+- `required` — new required fields are added to the array
+- `$defs` / `definitions` — new definitions are added
+- `dependentSchemas` — new dependent schemas are added
+- `dependencies` — new dependencies are added
+
+**Keywords that REPLACE** (override existing): all others — `type`, `oneOf`, `anyOf`, `allOf`, `enum`, `const`, `items`, etc.
+
+```typescript
+const base = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.number(),
+    name: (s) => s.string(),
+  })
+  .required(["id", "name"])
+  .build();
+
+// ADDS to properties and required (doesn't replace)
+const extended = new SchemaBuilder()
+  .extend(base)
+  .properties({ email: (s) => s.string() })
+  .required(["email"])
+  .build();
+// properties = { id, name, email }, required = ["id", "name", "email"]
+
+// Remove a property
+const withoutName = new SchemaBuilder()
+  .extend(base)
+  .remove(["name"], ["properties"])
+  .build();
+// properties = { id }, required = ["id"]
+
+// Make all optional
+const allOptional = new SchemaBuilder().extend(base).optional().build();
+// properties = { id, name }, required = []
+```
+
+### Modifying merged keywords
+
+```typescript
+// Remove properties and update required
+new SchemaBuilder().extend(baseSchema).remove(["fieldName"], ["properties", "required"]).build();
+
+// Make all fields optional
+new SchemaBuilder().extend(baseSchema).optional().build();
+
+// Override a specific property by redefining it
+new SchemaBuilder()
+  .extend(baseSchema)
+  .properties({ existingField: (s) => s.string() }) // redefines the type
+  .build();
+```
+
+## Loading external schemas
+
+<Callout type="warning">
+  When loading an external schema with `file`, `url`, or `json`, do it **first** — it
+  replaces the entire schema object of the builder. The same applies to `extend`.
+</Callout>
+
+### From URL
+
+```typescript
+const schema = await new SchemaBuilder()
+  .url("https://example.com/schemas/user.json")
+  .extend()
+  .properties({ extraField: (s) => s.string() })
+  .build();
+```
+
+### From file
+
+```typescript
+const schema = await new SchemaBuilder()
+  .file("./schemas/base.json")
+  .extend()
+  .properties({ additionalProp: (s) => s.string() })
+  .build();
+```
+
+### From JSON
+
+```typescript
+const existingSchema = {
+  type: "object",
+  properties: { name: { type: "string" } },
+};
+
+const extended = new SchemaBuilder()
+  .json(existingSchema)
+  .extend()
+  .properties({ age: (s) => s.number() })
+  .required(["name", "age"])
+  .build();
+```
+
+## Composition with extend()
+
+```typescript
+const timestampMixin = new SchemaBuilder().object().properties({
+  createdAt: (s) => s.string().format("date-time"),
+  updatedAt: (s) => s.string().format("date-time"),
+});
+
+const auditMixin = new SchemaBuilder().object().properties({
+  createdBy: (s) => s.string(),
+  modifiedBy: (s) => s.string(),
+});
+
+const fullSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.integer(),
+    data: (s) => s.string(),
+  })
+  .allOf(
+    (s) => s.extend(timestampMixin),
+    (s) => s.extend(auditMixin),
+  )
+  .build();
+// Result has: id, data, createdAt, updatedAt, createdBy, modifiedBy
+```

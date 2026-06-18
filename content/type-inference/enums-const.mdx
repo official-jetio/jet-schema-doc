@@ -1,0 +1,52 @@
+---
+title: Enums & Const
+description: Literal union types from enum and single literal types from const — no as const needed.
+---
+
+import { Callout } from "nextra/components";
+
+# Enums & Const
+
+## Enum (union of literals)
+
+```typescript
+const statusSchema = new SchemaBuilder()
+  .enum(["pending", "approved", "rejected", "cancelled"])
+  .build();
+type Status = Jet.Infer<typeof statusSchema>;
+// "pending" | "approved" | "rejected" | "cancelled"
+
+const prioritySchema = new SchemaBuilder().enum([1, 2, 3, 4, 5]).build();
+type Priority = Jet.Infer<typeof prioritySchema>;
+// 1 | 2 | 3 | 4 | 5
+
+const mixedSchema = new SchemaBuilder().enum(["active", 1, true, null]).build();
+type Mixed = Jet.Infer<typeof mixedSchema>;
+// "active" | 1 | true | null
+```
+
+## Const (single literal value)
+
+```typescript
+const apiVersionSchema = new SchemaBuilder().const("v2").build();
+type ApiVersion = Jet.Infer<typeof apiVersionSchema>;
+// "v2" (not string)
+
+const maxRetriesSchema = new SchemaBuilder().const(3).build();
+type MaxRetries = Jet.Infer<typeof maxRetriesSchema>;
+// 3 (not number)
+
+const productionSchema = new SchemaBuilder().const(true).build();
+type Production = Jet.Infer<typeof productionSchema>;
+// true (not boolean)
+```
+
+<Callout type="info">
+  **No `as const` needed.** Literal types are inferred automatically from `.enum()` and
+  `.const()` values.
+</Callout>
+
+<Callout type="warning">
+  If `const` or `enum` is given a `$data` reference, the type is always `any` — the runtime
+  value is unknown at compile time.
+</Callout>

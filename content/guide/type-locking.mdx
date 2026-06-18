@@ -1,0 +1,55 @@
+---
+title: TypeScript Type Locking
+description: How the first type method you call decides which constraint keywords TypeScript exposes.
+---
+
+import { Callout } from "nextra/components";
+
+# TypeScript Type Locking
+
+When chaining type methods, the **first type called** determines which keywords TypeScript makes available.
+
+```typescript
+// String-first: string keywords available
+new SchemaBuilder()
+  .string() // Locks to StringSchemaBuilder
+  .number() // Adds "number" to the type array, switches to NumberSchemaBuilder
+  .minLength(5) // ❌ TypeScript error — string keyword
+  .pattern(/^a/) // ❌ TypeScript error — string keyword
+  .minimum(0); // ✅ number keyword available
+
+// Number-first: number keywords available
+new SchemaBuilder()
+  .number() // Locks to NumberSchemaBuilder
+  .string() // Adds "string" to the type array, switches to StringSchemaBuilder
+  .minimum(0) // ❌ TypeScript error — number keyword
+  .multipleOf(5) // ❌ TypeScript error — number keyword
+  .minLength(5); // ✅ string keyword available
+```
+
+<Callout type="info">
+  **Why this design?** It enforces strict typing — only methods of the active type are
+  accessible. The most recently called type decides the available methods, while still
+  letting you build a multi-type schema constrained by one primary type.
+</Callout>
+
+## Defining constraints for multiple types
+
+Fully define one type's constraints, then call the next type to branch.
+
+```typescript
+const schema = new SchemaBuilder()
+  .string()
+  .minLength(5) // String constraint
+  .number() // Branch to NumberSchemaBuilder
+  .minimum(0) // Number constraint now available
+  .build();
+
+// Result: { type: ["string", "number"], minLength: 5, minimum: 0 }
+```
+
+<Callout type="warning">
+  Keywords like `const`, `enum`, `anyOf`, `oneOf`, and `allOf` are **universal** — they
+  aren't affected by type locking. Only typed constraint keywords
+  (`minLength`, `minimum`, `pattern`, …) are gated by the active type.
+</Callout>

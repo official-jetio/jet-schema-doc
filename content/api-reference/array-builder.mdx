@@ -1,0 +1,21 @@
+---
+title: ArraySchemaBuilder
+description: Array- and tuple-specific methods.
+---
+
+# ArraySchemaBuilder
+
+Provides the universal and metadata methods (`$id`, `title`, `description`, `enum`, `const`, `anyOf`, `allOf`, `oneOf`, `not`, `if`, `errorMessage`, `extend`, `build`, …) plus the array-specific constraints below. Per [type locking](/guide/type-locking), only this type's constraints are accessible once the builder is locked to array.
+
+| Method                      | Parameters                                                    | Returns         | Description                                   |
+| --------------------------- | ------------------------------------------------------------ | --------------- | --------------------------------------------- |
+| `.items(...schemas)`        | `BuilderSchema[]` or `((b: SchemaBuilder) => SchemaBuilder)[]` | `SchemaBuilder` | Schema for all items (or tuple for Draft 07)  |
+| `.prefixItems(...schemas)`  | `BuilderSchema[]` or `((b: SchemaBuilder) => SchemaBuilder)[]` | `SchemaBuilder` | Tuple validation (Draft 2020-12)              |
+| `.additionalItems(schema)`  | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder`      | `SchemaBuilder` | Schema for items beyond tuple (Draft 07)      |
+| `.unevaluatedItems(schema)` | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder`      | `SchemaBuilder` | Schema for unevaluated items (Draft 2019-09+) |
+| `.contains(schema)`         | `BuilderSchema` or `(b: SchemaBuilder) => SchemaBuilder`      | `SchemaBuilder` | Array must contain a matching item            |
+| `.minContains(n)`           | `number` or `$data`                                          | `SchemaBuilder` | Minimum matching items                        |
+| `.maxContains(n)`           | `number` or `$data`                                          | `SchemaBuilder` | Maximum matching items                        |
+| `.minItems(n)`              | `number` or `$data`                                          | `SchemaBuilder` | Minimum array length                          |
+| `.maxItems(n)`              | `number` or `$data`                                          | `SchemaBuilder` | Maximum array length                          |
+| `.uniqueItems(value)`       | `boolean` or `$data`                                         | `SchemaBuilder` | Require unique items                          |

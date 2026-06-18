@@ -1,0 +1,62 @@
+---
+title: Introduction
+description: A fluent, type-safe JSON Schema builder with spec-compliant TypeScript inference and a validator in the box.
+---
+
+import { Callout, Cards } from "nextra/components";
+
+# @jetio/schema-builder
+
+A fluent, type-safe API for constructing JSON Schemas programmatically. Build complex schemas with autocomplete, validation, and zero boilerplate — and get automatic TypeScript type inference from the same `build()` call.
+
+<Callout type="info">
+  This package ships with [@jetio/validator](https://www.npmjs.com/package/@jetio/validator)
+  as a dependency. You get both the builder **and** the validator in one install.
+  All core validation rules, error handling, and `$data` references are documented in the
+  [Validator Documentation](https://jet-validator-docs.vercel.app/).
+</Callout>
+
+## Three things from one schema
+
+Write a schema once and `build()` gives you a fluent builder, a matching TypeScript type via `Jet.Infer<>`, and runtime validation — all enforcing the same rules, none of them able to drift apart.
+
+```typescript
+import { SchemaBuilder, Jet, JetValidator } from "@jetio/schema-builder";
+
+const userSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.number(),
+    name: (s) => s.string(),
+    email: (s) => s.string().format("email"),
+  })
+  .required(["id", "name", "email"])
+  .build();
+
+type User = Jet.Infer<typeof userSchema>;
+// { id: number; name: string; email: string }
+
+const validate = new JetValidator().compile(userSchema);
+validate({ id: 1, name: "Alice", email: "alice@example.com" }); // true
+```
+
+## Why it's different
+
+- **Spec-compliant inference** — types *behave* like JSON Schema, not just resemble it. If the validator rejects it, TypeScript rejects it too.
+- **`oneOf` is actually exclusive** — the other branch's keys are marked `never` automatically, giving a true discriminated union with no `kind` tag required.
+- **`if` / `then` / `elseIf` / `else` are inferred** — conditional types from conditional schemas, including `elseIf`, which no other TypeScript schema library supports.
+- **Full draft coverage** — Draft 06 through 2020-12, including `unevaluatedProperties`, `prefixItems`, `$dynamicRef`, and `patternProperties` mapped to template-literal keys.
+- **No `as const`** — literal types from `.enum()` and `.const()` are inferred for you.
+
+## Try it live
+
+No install required — [open the playground on StackBlitz →](https://stackblitz.com/edit/vitejs-vite-maszqpnk?file=src%2Fmain.ts)
+
+## Where to go next
+
+<Cards>
+  <Cards.Card title="Installation" href="/getting-started/installation" arrow />
+  <Cards.Card title="Quick Start" href="/getting-started/quick-start" arrow />
+  <Cards.Card title="Builder Guide" href="/guide/basic-types" arrow />
+  <Cards.Card title="Type Inference" href="/type-inference/overview" arrow />
+</Cards>

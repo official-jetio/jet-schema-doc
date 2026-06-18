@@ -1,0 +1,438 @@
+---
+title: Schema Extension & Reusability
+description: How extend() composes schemas with full type inference, why it beats $ref, merge vs replace, and remove/optional.
+---
+
+import { Callout } from "nextra/components";
+
+# Schema Extension & Reusability
+
+`.extend()` provides powerful schema reuse with full type inference, eliminating the need for `$ref` in most cases.
+
+## Basic extension
+
+```typescript
+const timestampSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    createdAt: (s) => s.number(),
+    updatedAt: (s) => s.number(),
+  })
+  .required(["createdAt"])
+  .build();
+
+const userSchema = new SchemaBuilder()
+  .extend(timestampSchema)
+  .properties({
+    id: (s) => s.number(),
+    name: (s) => s.string(),
+    email: (s) => s.string(),
+  })
+  .required(["id", "name", "email"])
+  .build();
+
+type User = Jet.Infer<typeof userSchema>;
+// {
+//   createdAt: number;   // from base
+//   updatedAt?: number;  // from base
+//   id: number;          // added
+//   name: string;        // added
+//   email: string;       // added
+// }
+```
+
+## How extension works
+
+`.extend()` inherits the complete state of the existing schema, then you build on top.
+
+```typescript
+const baseSchema = new SchemaBuilder()
+  .object()
+  .properties({ id: (s) => s.number() })
+  .build();
+
+const extendedSchema = new SchemaBuilder()
+  .extend(baseSchema)
+  .properties({ name: (s) => s.string() })
+  .build();
+
+type Extended = Jet.Infer<typeof extendedSchema>;
+// { id?: number; name?: string }
+```
+
+Each method call **replaces**, **merges**, or **creates a union** for its keyword. For types specifically, adding a type creates a union:
+
+```typescript
+const schema1 = new SchemaBuilder().string().build();
+
+const schema2 = new SchemaBuilder().extend(schema1).number().build();
+
+type Schema2 = Jet.Infer<typeof schema2>;
+// string | number (not just number)
+```
+
+This ensures types stay consistent, extension is predictable, and schemas work as reusable templates.
+
+## Why extension beats $ref
+
+`$ref` resolves at validation time but gives TypeScript nothing.
+
+```typescript
+// With $ref — no usable type
+new SchemaBuilder()
+  .$defs({ user: (s) => s.object().properties({ id: (s) => s.number() }) })
+  .properties({ author: (s) => s.$ref("#/$defs/user") });
+// Type: { author?: unknown }  ❌
+
+// With .extend() — fully typed
+const userSchema = new SchemaBuilder()
+  .object()
+  .properties({ id: (s) => s.number() })
+  .build();
+
+new SchemaBuilder()
+  .object()
+  .properties({ author: (s) => s.extend(userSchema) });
+// Type: { author?: { id?: number } }  ✅
+```
+
+<Callout type="info">
+  **Benefits:** type inference works perfectly, no `$ref` resolution needed, maximum
+  reusability, schemas become composable building blocks, and dependencies stay explicit.
+</Callout>
+
+## Multiple extensions
+
+```typescript
+const idSchema = new SchemaBuilder()
+  .object()
+  .properties({ id: (s) => s.string().format("uuid") })
+  .required(["id"])
+  .build();
+
+const timestampSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    createdAt: (s) => s.number(),
+    updatedAt: (s) => s.number(),
+  })
+  .required(["createdAt"])
+  .build();
+
+const entitySchema = new SchemaBuilder()
+  .extend(idSchema)
+  .allOf((s) => s.extend(timestampSchema))
+  .properties({
+    name: (s) => s.string(),
+    description: (s) => s.string(),
+  })
+  .required(["name"])
+  .build();
+
+type Entity = Jet.Infer<typeof entitySchema>;
+// {
+//   id: string;          // from idSchema
+//   createdAt: number;   // from timestampSchema via allOf
+//   name: string;        // added
+//   updatedAt?: number;
+//   description?: string;
+// }
+```
+
+## Common patterns
+
+### Trait composition
+
+```typescript
+const identifiable = new SchemaBuilder()
+  .object()
+  .properties({ id: (s) => s.string() })
+  .required(["id"])
+  .build();
+
+const nameable = new SchemaBuilder()
+  .object()
+  .properties({ name: (s) => s.string() })
+  .required(["name"])
+  .build();
+
+const product = new SchemaBuilder()
+  .extend(identifiable)
+  .allOf((s) => s.extend(nameable))
+  .properties({
+    price: (s) => s.number(),
+    inStock: (s) => s.boolean(),
+  })
+  .required(["price", "inStock"])
+  .build();
+```
+
+### Base + variants
+
+```typescript
+const baseUser = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.number(),
+    email: (s) => s.string(),
+  })
+  .required(["id", "email"])
+  .build();
+
+const adminUser = new SchemaBuilder()
+  .extend(baseUser)
+  .properties({
+    role: (s) => s.const("admin"),
+    permissions: (s) => s.array().items((s) => s.string()),
+  })
+  .required(["role", "permissions"])
+  .build();
+
+const regularUser = new SchemaBuilder()
+  .extend(baseUser)
+  .properties({ role: (s) => s.const("user") })
+  .required(["role"])
+  .build();
+```
+
+### Incremental building
+
+```typescript
+let schema = new SchemaBuilder().object();
+
+schema = new SchemaBuilder()
+  .extend(schema)
+  .properties({
+    id: (s) => s.number(),
+    name: (s) => s.string(),
+  });
+
+if (needsTimestamps) {
+  schema = new SchemaBuilder()
+    .extend(schema)
+    .properties({
+      createdAt: (s) => s.number(),
+      updatedAt: (s) => s.number(),
+    });
+}
+
+const final = schema.build();
+```
+
+## Merge vs replace
+
+When you extend and add keywords, some **merge** with the base and some **replace** it.
+
+**Keywords that MERGE (additive):**
+
+- `properties` — object properties merge
+- `patternProperties` — pattern properties merge
+- `required` — required arrays union together
+
+```typescript
+const baseSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.number(),
+    createdAt: (s) => s.number(),
+  })
+  .required(["id"])
+  .build();
+
+const extendedSchema = new SchemaBuilder()
+  .extend(baseSchema)
+  .properties({
+    name: (s) => s.string(),
+    email: (s) => s.string(),
+  })
+  .required(["name"])
+  .build();
+
+type Extended = Jet.Infer<typeof extendedSchema>;
+// {
+//   id: number;         // from base (required)
+//   createdAt?: number; // from base (optional)
+//   name: string;       // added (required)
+//   email?: string;     // added (optional)
+// }
+// required merged: ["id", "name"]
+```
+
+**Keywords that REPLACE (override):**
+
+- Combinators: `oneOf`, `anyOf`, `allOf`, `not`
+- Conditionals: `if`, `then`, `elseIf`, `else`
+- Literals: `const`, `enum`
+- Array structure: `items`, `prefixItems`, `additionalItems`, `unevaluatedItems`, `contains`
+- Object constraints: `additionalProperties`, `unevaluatedProperties`
+
+```typescript
+const arrSchema = new SchemaBuilder().array().items((s) => s.string());
+
+const arr2Schema = new SchemaBuilder()
+  .extend(arrSchema)
+  .items((s) => s.number()) // replaced with number
+  .build();
+```
+
+**Special case — types union instead of replacing:**
+
+```typescript
+const stringSchema = new SchemaBuilder().string().minLength(5).build();
+
+const numberSchema = new SchemaBuilder()
+  .extend(stringSchema)
+  .number() // you get string | number
+  .minimum(0)
+  .build();
+
+type Result = Jet.Infer<typeof numberSchema>;
+// string | number — constraints apply to their individual types
+```
+
+A `replace` example with object constraints:
+
+```typescript
+const baseConfig = new SchemaBuilder()
+  .object()
+  .properties({
+    host: (s) => s.string(),
+    port: (s) => s.number(),
+  })
+  .required(["host"])
+  .additionalProperties((s) => s.boolean()) // extra props must be boolean
+  .build();
+
+const strictConfig = new SchemaBuilder()
+  .extend(baseConfig)
+  .properties({ timeout: (s) => s.number() })
+  .additionalProperties(false) // REPLACES: now no extra props
+  .build();
+
+type StrictConfig = Jet.Infer<typeof strictConfig>;
+// { host: string; port?: number; timeout?: number }
+```
+
+## remove and optional
+
+### remove
+
+Removes defined properties from `properties`, `required`, `patternProperties`, `dependencies`, or `dependentRequired`. Default target is `["properties"]`.
+
+```typescript
+const logEntrySchema = new SchemaBuilder()
+  .object()
+  .properties({
+    key: (s) => s.string(),
+    value: (s) => s.string(),
+  })
+  .required(["key", "value"])
+  .build();
+// { key: string; value: string }
+
+// Remove from required only → key becomes optional
+const schema3 = new SchemaBuilder()
+  .extend(logEntrySchema)
+  .properties({ jon: (s) => s.string() })
+  .required(["jon"])
+  .remove(["key"], ["required"])
+  .build();
+// { value: string; jon: string; key?: string }
+
+// Remove from properties → key removed entirely
+const schema4 = new SchemaBuilder()
+  .extend(logEntrySchema)
+  .properties({ jon: (s) => s.string() })
+  .required(["jon"])
+  .remove(["key"], ["properties"])
+  .build();
+// { value: string; jon: string }
+
+// Multiple values and keywords at once
+const schema5 = new SchemaBuilder()
+  .extend(logEntrySchema)
+  .properties({ jon: (s) => s.string() })
+  .required(["jon"])
+  .remove(["key", "jon"], ["properties", "required", "dependencies"])
+  .build();
+```
+
+### optional
+
+Deletes the `required` array entirely — every property becomes optional.
+
+```typescript
+const schema2 = new SchemaBuilder()
+  .extend(logEntrySchema)
+  .properties({ jon: (s) => s.string() })
+  .optional()
+  .build();
+// { key?: string; value?: string; jon?: string }
+```
+
+## Practical examples
+
+### Building user variants
+
+```typescript
+const baseUser = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.string(),
+    email: (s) => s.string().format("email"),
+    createdAt: (s) => s.number(),
+  })
+  .required(["id", "email"])
+  .build();
+
+const adminUser = new SchemaBuilder()
+  .extend(baseUser)
+  .properties({
+    role: (s) => s.const("admin"),
+    permissions: (s) => s.array().items((s) => s.string()),
+  })
+  .required(["role", "permissions"])
+  .build();
+
+type AdminUser = Jet.Infer<typeof adminUser>;
+// {
+//   id: string; email: string;       // from base (required)
+//   role: "admin"; permissions: string[]; // added (required)
+//   createdAt?: number;              // from base (optional)
+// }
+```
+
+### Combining merge and replace
+
+```typescript
+const baseProduct = new SchemaBuilder()
+  .object()
+  .properties({
+    id: (s) => s.string(),
+    name: (s) => s.string(),
+  })
+  .required(["id"])
+  .oneOf(
+    (s) => s.object().properties({ type: (s) => s.const("digital") }),
+    (s) => s.object().properties({ type: (s) => s.const("physical") }),
+  )
+  .build();
+
+const extendedProduct = new SchemaBuilder()
+  .extend(baseProduct)
+  .properties({ price: (s) => s.number() }) // MERGES
+  .required(["price"]) // MERGES
+  .oneOf(
+    // REPLACES the original oneOf entirely
+    (s) => s.object().properties({ category: (s) => s.const("electronics") }),
+    (s) => s.object().properties({ category: (s) => s.const("clothing") }),
+  )
+  .build();
+
+type ExtendedProduct = Jet.Infer<typeof extendedProduct>;
+// {
+//   id: string; name?: string; price: number;
+//   category: "electronics" | "clothing"; // from the NEW oneOf
+// }
+// The original digital/physical oneOf was replaced.
+```

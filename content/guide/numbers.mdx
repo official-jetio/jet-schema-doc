@@ -1,0 +1,62 @@
+---
+title: Number Schemas
+description: Numeric constraints, multiples, and convenience shorthands for numbers and integers.
+---
+
+# Number Schemas
+
+## Numeric constraints
+
+```typescript
+const priceSchema = new SchemaBuilder()
+  .number()
+  .minimum(0)
+  .maximum(1000000)
+  .build();
+// { type: "number", minimum: 0, maximum: 1000000 }
+
+// Exclusive bounds
+const percentageSchema = new SchemaBuilder()
+  .number()
+  .exclusiveMinimum(0)
+  .exclusiveMaximum(100)
+  .build();
+// { type: "number", exclusiveMinimum: 0, exclusiveMaximum: 100 }
+```
+
+## Multiple of
+
+```typescript
+const evenNumberSchema = new SchemaBuilder().integer().multipleOf(2).build();
+
+const priceInCents = new SchemaBuilder().number().multipleOf(0.01).build();
+```
+
+## Convenience methods
+
+```typescript
+// Positive numbers (>= 0)
+const positiveSchema = new SchemaBuilder().number().positive().build();
+// { type: "number", minimum: 0 }
+
+// Negative numbers (<= 0)
+const negativeSchema = new SchemaBuilder().number().negative().build();
+// { type: "number", maximum: 0 }
+
+// Range shorthand
+const scoreSchema = new SchemaBuilder().number().range(0, 100).build();
+// { type: "number", minimum: 0, maximum: 100 }
+```
+
+## Enums & constants
+
+```typescript
+// Enum (multiple allowed values)
+const statusSchema = new SchemaBuilder()
+  .string()
+  .enum(["active", "inactive", "pending"])
+  .build();
+
+// Const (single allowed value)
+const typeSchema = new SchemaBuilder().string().const("user").build();
+```

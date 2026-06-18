@@ -1,0 +1,87 @@
+---
+title: Form Validation
+description: A registration form schema with per-field error messages, $data password matching, and a US-state conditional.
+---
+
+# Form Validation
+
+A registration form showing custom error messages per keyword, a `$data` reference for confirm-password matching, and a country-conditional state field.
+
+```typescript
+const formSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    username: (s) =>
+      s
+        .string()
+        .minLength(3)
+        .maxLength(20)
+        .pattern("^[a-zA-Z0-9_]+$")
+        .title("Username")
+        .description("Alphanumeric characters and underscores only")
+        .errorMessage({
+          minLength: "Username must be at least 3 characters",
+          maxLength: "Username cannot exceed 20 characters",
+          pattern:
+            "Username can only contain letters, numbers, and underscores",
+        }),
+    email: (s) =>
+      s
+        .string()
+        .format("email")
+        .title("Email Address")
+        .errorMessage("Please enter a valid email address"),
+    password: (s) =>
+      s
+        .string()
+        .minLength(8)
+        .pattern("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)")
+        .title("Password")
+        .description("Must contain uppercase, lowercase, and number")
+        .errorMessage({
+          minLength: "Password must be at least 8 characters",
+          pattern: "Password must contain uppercase, lowercase, and a number",
+        }),
+    confirmPassword: (s) =>
+      s
+        .string()
+        .const({ $data: "1/password" })
+        .title("Confirm Password")
+        .errorMessage("Passwords do not match"),
+    age: (s) =>
+      s.integer().minimum(13).maximum(120).title("Age").errorMessage({
+        minimum: "You must be at least 13 years old",
+        maximum: "Please enter a valid age",
+      }),
+    country: (s) => s.string().enum(["US", "UK", "CA", "AU"]).title("Country"),
+    agreedToTerms: (s) =>
+      s
+        .boolean()
+        .const(true)
+        .title("I agree to the terms and conditions")
+        .errorMessage("You must agree to the terms and conditions"),
+  })
+  .required([
+    "username",
+    "email",
+    "password",
+    "confirmPassword",
+    "age",
+    "agreedToTerms",
+  ])
+  .if((s) => s.object().properties({ country: (s) => s.const("US") }))
+  .then((s) =>
+    s
+      .object()
+      .properties({
+        state: (s) =>
+          s
+            .string()
+            .pattern("^[A-Z]{2}$")
+            .title("State")
+            .errorMessage("Please enter a valid 2-letter state code"),
+      })
+      .required(["state"]),
+  )
+  .build();
+```

@@ -1,0 +1,107 @@
+---
+title: Conditionals
+description: if / then / else and elseIf chains inferred as exclusive discriminated unions.
+---
+
+import { Callout } from "nextra/components";
+
+# Conditionals
+
+Conditional schemas infer as discriminated unions narrowed on the condition field. `@jetio/schema-builder` provides type inference for JSON Schema's conditional keywords — including `elseIf`, which no other TypeScript schema library supports.
+
+The type is built by merging the base properties, `if`, and `then`, then forming an exclusive-or with the merge of base and `else` — so only one branch can exist at a time. This extends through every `elseIf`.
+
+## Basic if / then / else
+
+```typescript
+const addressSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    country: (s) => s.string(),
+    state: (s) => s.string(),
+    postalCode: (s) => s.string(),
+  })
+  .required(["country"])
+  .if((s) => s.object().properties({ country: (s) => s.const("US") }))
+  .then((s) =>
+    s
+      .object()
+      .properties({
+        state: (s) => s.string(),
+        zipCode: (s) => s.string().pattern("^[0-9]{5}$"),
+      })
+      .required(["state"]),
+  )
+  .else((s) =>
+    s.object().properties({ postalCode: (s) => s.string() }).required(["postalCode"]),
+  )
+  .build();
+
+type Address = Jet.Infer<typeof addressSchema>;
+// {
+//   country: "US"; state: string; zipCode?: string; postalCode?: string;
+// } | {
+//   country: string; postalCode: string; state?: string; zipCode?: undefined;
+// }
+```
+
+## if / elseIf / else chains
+
+```typescript
+const shippingSchema = new SchemaBuilder()
+  .object()
+  .properties({
+    country: (s) => s.string(),
+    weight: (s) => s.number(),
+    shippingMethod: (s) => s.string(),
+  })
+  .required(["country", "weight"])
+  .if((s) => s.object().properties({ country: (s) => s.const("US") }))
+  .then((s) =>
+    s
+      .object()
+      .properties({
+        shippingMethod: (s) => s.enum(["USPS", "UPS", "FedEx"]),
+        estimatedDays: (s) => s.enum([2, 3, 5]),
+      })
+      .required(["shippingMethod"]),
+  )
+  .elseIf((s) => s.object().properties({ country: (s) => s.const("CA") }))
+  .then((s) =>
+    s
+      .object()
+      .properties({
+        shippingMethod: (s) => s.enum(["Canada Post", "Purolator"]),
+        estimatedDays: (s) => s.enum([5, 7, 10]),
+      })
+      .required(["shippingMethod"]),
+  )
+  .else((s) =>
+    s
+      .object()
+      .properties({
+        shippingMethod: (s) => s.string(),
+        estimatedDays: (s) => s.number().minimum(14),
+      })
+      .required(["shippingMethod"]),
+  )
+  .build();
+
+type Shipping = Jet.Infer<typeof shippingSchema>;
+// {
+//   country: "US"; weight: number;
+//   shippingMethod: "USPS" | "UPS" | "FedEx"; estimatedDays?: 2 | 3 | 5;
+// } | {
+//   country: "CA"; weight: number;
+//   shippingMethod: "Canada Post" | "Purolator"; estimatedDays?: 5 | 7 | 10;
+// } | {
+//   country: string; weight: number;
+//   shippingMethod: string; estimatedDays?: number;
+// }
+```
+
+<Callout type="info">
+  **Key behaviours:** conditionals create discriminated unions narrowed on the condition
+  field (one is enforced if absent); `elseIf` is evaluated in order, first match wins; each
+  branch is exclusive — data matches exactly one path.
+</Callout>
